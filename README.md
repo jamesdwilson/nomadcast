@@ -87,7 +87,7 @@ Micron example (NomadNet-friendly):
 If that link does not open your podcast app, copy and paste that link into [NomadCast](https://github.com/jamesdwilson/nomadcast)
 ```
 
-NomadCast installs itself as a system-wide protocol handler for `nomadcast://` links (and the shorter `nomadcast:` form), so clicking the link above will open NomadCast directly on supported systems.
+On first run, NomadCast registers itself as a system-wide protocol handler for `nomadcast://` links (and the shorter `nomadcast:` form), so clicking the link above will open NomadCast directly on supported systems.
 
 
 1. Install Nomad Network:
@@ -238,7 +238,7 @@ Tests live in `tests/` and focus on parsing, RSS rewriting, and HTTP range behav
 
 ## Protocol handler (nomadcast:)
 
-NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme.
+NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme the first time you run the UI.
 
 Expectation:
 - NomadNet users can click a `nomadcast:` link and NomadCast will open.
@@ -260,7 +260,13 @@ Listener side behavior (v0):
 
 Then `nomadcast` exits.
 
-The installer (or package) configures the OS to route `nomadcast://` links to the NomadCast app, so any publisher-facing page can rely on the scheme opening NomadCast when it is installed.
+On first run, NomadCast registers the protocol handler in a platform-native way:
+
+- **Windows:** writes the per-user `HKEY_CURRENT_USER\Software\Classes\nomadcast` registry keys.
+- **macOS:** creates a lightweight app bundle in `~/Applications` and registers it with Launch Services.
+- **Linux:** writes a `nomadcast.desktop` file under `~/.local/share/applications` and calls `xdg-mime` to set the handler.
+
+This means any publisher-facing page can rely on the scheme opening NomadCast after the UI has been launched once.
 
 ## Installation notes (developer-oriented)
 

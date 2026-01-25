@@ -6,6 +6,7 @@ import argparse
 import sys
 from typing import NoReturn
 
+from nomadcast.protocol_handler import ensure_protocol_handler_registered
 from nomadcast.ui import SubscriptionService, UiLauncher, UiUnavailableError
 
 
@@ -26,6 +27,7 @@ def _run_protocol_handler(locator: str) -> int:
 
 
 def main() -> NoReturn:
+    ensure_protocol_handler_registered()
     parser = argparse.ArgumentParser(description="NomadCast v0 UI")
     parser.add_argument("locator", nargs="?", help="NomadCast locator to subscribe")
     args = parser.parse_args()
