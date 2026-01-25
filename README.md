@@ -35,8 +35,8 @@ Think of this like subscribing to any other podcast, just with one extra helper 
 
 1. Install NomadCast.
 2. Start the NomadCast daemon (it runs quietly in the background).
-3. Add a show by pasting a Reticulum podcast locator you found on a NomadNet page.
-4. Your podcast app opens and subscribes to a local URL like:
+3. Click a NomadCast podcast link on a NomadNet page; NomadCast pops up to confirm the add.
+4. NomadCast adds the show to its config and launches your regular podcast player with a local URL like:
    - http://127.0.0.1:5050/feeds/<identity_hash:ShowName>
 
 After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and media available even when Reticulum is slow or offline by serving a local cache.
