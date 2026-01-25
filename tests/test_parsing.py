@@ -11,6 +11,12 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual(subscription.destination_hash, "a7c3e9b14f2d6a80715c9e3b1a4d8f20")
         self.assertEqual(subscription.show_name, "BestShow")
 
+    def test_parse_subscription_uri_with_double_slash(self) -> None:
+        uri = "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+        subscription = parse_subscription_uri(uri)
+        self.assertEqual(subscription.destination_hash, "a7c3e9b14f2d6a80715c9e3b1a4d8f20")
+        self.assertEqual(subscription.show_name, "BestShow")
+
     def test_show_path_roundtrip(self) -> None:
         destination = "a7c3e9b14f2d6a80715c9e3b1a4d8f20"
         show_name = "BestShow"
