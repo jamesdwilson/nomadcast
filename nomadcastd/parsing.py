@@ -55,6 +55,34 @@ def parse_subscription_uri(uri: str) -> Subscription:
     return Subscription(uri=uri, destination_hash=destination_hash, show_name=show_name)
 
 
+def normalize_subscription_input(raw_input: str) -> str:
+    """Normalize a user-provided locator into a full subscription URI.
+
+    The README allows users to paste either:
+    - nomadcast:<DEST_HASH>:<SHOW_NAME>/rss
+    - nomadcast://<DEST_HASH>:<SHOW_NAME>/rss
+    - <DEST_HASH>:<SHOW_NAME>
+    """
+    trimmed = raw_input.strip()
+    if not trimmed:
+        raise ValueError("Subscription locator cannot be empty")
+
+    if trimmed.startswith(NOMADCAST_URL_PREFIX):
+        trimmed = f"{NOMADCAST_PREFIX}{trimmed[len(NOMADCAST_URL_PREFIX):]}"
+
+    if trimmed.startswith(NOMADCAST_PREFIX):
+        if trimmed.endswith(RSS_SUFFIX):
+            return trimmed
+        if MEDIA_PREFIX in trimmed:
+            raise ValueError("Media URLs are not valid subscription locators")
+        return f"{trimmed.rstrip('/')}{RSS_SUFFIX}"
+
+    if ":" not in trimmed:
+        raise ValueError("Locator must include destination hash and show name")
+
+    return f"{NOMADCAST_PREFIX}{trimmed}{RSS_SUFFIX}"
+
+
 def encode_show_path(destination_hash: str, show_name: str) -> str:
     """Encode DEST_HASH:SHOW_NAME into a single URL path segment."""
     return quote(f"{destination_hash}:{show_name}", safe="")

@@ -11,39 +11,15 @@ import importlib.util
 import textwrap
 import webbrowser
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable
 
-from nomadcastd.config import NomadCastConfig, ensure_default_config, load_config, load_subscriptions
-from nomadcastd.parsing import Subscription, encode_show_path, parse_subscription_uri
-
-
-def normalize_subscription_input(raw_input: str) -> str:
-    """Normalize a user-provided locator into a full subscription URI.
-
-    The README allows users to paste either:
-    - nomadcast:<DEST_HASH>:<SHOW_NAME>/rss
-    - nomadcast://<DEST_HASH>:<SHOW_NAME>/rss
-    - <DEST_HASH>:<SHOW_NAME>
-    """
-    trimmed = raw_input.strip()
-    if not trimmed:
-        raise ValueError("Subscription locator cannot be empty")
-
-    if trimmed.startswith("nomadcast://"):
-        trimmed = f"nomadcast:{trimmed[len('nomadcast://'):]}"
-
-    if trimmed.startswith("nomadcast:"):
-        if trimmed.endswith("/rss"):
-            return trimmed
-        if "/media/" in trimmed:
-            raise ValueError("Media URLs are not valid subscription locators")
-        return f"{trimmed.rstrip('/')}/rss"
-
-    if ":" not in trimmed:
-        raise ValueError("Locator must include destination hash and show name")
-
-    return f"nomadcast:{trimmed}/rss"
+from nomadcastd.config import NomadCastConfig, add_subscription_uri, load_config
+from nomadcastd.parsing import (
+    Subscription,
+    encode_show_path,
+    normalize_subscription_input,
+    parse_subscription_uri,
+)
 
 
 def _subscription_feed_url(subscription: Subscription, config: NomadCastConfig) -> str:
@@ -62,44 +38,6 @@ def _podcast_handler_url(feed_url: str) -> str:
     if feed_url.startswith("https://"):
         return f"podcast://{feed_url[len('https://'):] }"
     return feed_url
-
-
-def add_subscription_to_config(config_path: Path, uri: str) -> bool:
-    """Add a subscription URI to the NomadCast config.
-
-    Returns True if the URI was added, False if it already existed.
-    """
-    ensure_default_config(config_path)
-    existing = load_subscriptions(config_path)
-    if uri in existing:
-        return False
-
-    lines = config_path.read_text(encoding="utf-8").splitlines()
-    subscription_section_start: int | None = None
-    subscription_section_end: int | None = None
-
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            if subscription_section_start is not None and subscription_section_end is None:
-                subscription_section_end = index
-            section_name = stripped[1:-1].strip().lower()
-            if section_name == "subscriptions":
-                subscription_section_start = index
-
-    if subscription_section_start is None:
-        new_lines = lines + ["", "[subscriptions]", f"uri = {uri}"]
-    else:
-        if subscription_section_end is None:
-            subscription_section_end = len(lines)
-        new_lines = (
-            lines[:subscription_section_end]
-            + [f"uri = {uri}"]
-            + lines[subscription_section_end:]
-        )
-
-    config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-    return True
 
 
 @dataclass(frozen=True)
@@ -121,7 +59,7 @@ class SubscriptionService:
         uri = normalize_subscription_input(locator)
         subscription = parse_subscription_uri(uri)
         config = self._config_loader()
-        added = add_subscription_to_config(config.config_path, uri)
+        added = add_subscription_uri(config.config_path, uri)
 
         feed_url = _subscription_feed_url(subscription, config)
         handler_url = _podcast_handler_url(feed_url)
@@ -313,4 +251,3 @@ class UiLauncher:
                 return handler
 
         NomadCastApp().run()
-

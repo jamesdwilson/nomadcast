@@ -144,3 +144,74 @@ def load_subscriptions(config_path: Path) -> list[str]:
     if not config_path.exists():
         ensure_default_config(config_path)
     return _load_subscription_uris(config_path)
+
+
+def add_subscription_uri(config_path: Path, uri: str) -> bool:
+    """Add a subscription URI to the NomadCast config.
+
+    Returns True if the URI was added, False if it already existed.
+    """
+    ensure_default_config(config_path)
+    existing = load_subscriptions(config_path)
+    if uri in existing:
+        return False
+
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    subscription_section_start: int | None = None
+    subscription_section_end: int | None = None
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if subscription_section_start is not None and subscription_section_end is None:
+                subscription_section_end = index
+            section_name = stripped[1:-1].strip().lower()
+            if section_name == "subscriptions":
+                subscription_section_start = index
+
+    if subscription_section_start is None:
+        new_lines = lines + ["", "[subscriptions]", f"uri = {uri}"]
+    else:
+        if subscription_section_end is None:
+            subscription_section_end = len(lines)
+        new_lines = (
+            lines[:subscription_section_end]
+            + [f"uri = {uri}"]
+            + lines[subscription_section_end:]
+        )
+
+    config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return True
+
+
+def remove_subscription_uri(config_path: Path, uri: str) -> bool:
+    """Remove a subscription URI from the NomadCast config.
+
+    Returns True if the URI was removed, False if it was not found.
+    """
+    ensure_default_config(config_path)
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    new_lines: list[str] = []
+    current_section: str | None = None
+    removed = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current_section = stripped[1:-1].strip().lower()
+            new_lines.append(line)
+            continue
+
+        if current_section == "subscriptions" and stripped.lower().startswith("uri"):
+            if "=" in stripped:
+                _, value = stripped.split("=", 1)
+                existing_uri = value.strip()
+                if existing_uri == uri:
+                    removed = True
+                    continue
+
+        new_lines.append(line)
+
+    if removed:
+        config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return removed
