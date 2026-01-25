@@ -1,25 +1,59 @@
 # Example NomadCast Podcast
 
-Welcome to the Example NomadCast Podcast, a tiny demo feed hosted over Reticulum and reachable through NomadCast.
+Welcome to **Example NomadCast Podcast**, a miniature podcast portal that shows how a Reticulum-hosted show can feel *delightfully normal* inside your favorite podcast app. It’s a full, end-to-end example: page → RSS → media → subscribe.
 
-## Subscribe
+---
 
-[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20%3AExampleNomadCastPodcast)
+## Subscribe ✨
 
-If that link does not open your podcast app, copy and paste the link above into [NomadCast](https://github.com/jamesdwilson/nomadcast).
+[**Subscribe to this podcast**](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20%3AExampleNomadCastPodcast)
 
-## About this feed
+If that link doesn’t open your podcast app, paste it into [NomadCast](https://github.com/jamesdwilson/nomadcast). NomadCast will open your podcast app and handle the local feed URL for you.
 
-This page is served from a Nomad Network node. The RSS is hosted alongside media files in the same storage path. NomadCast will fetch the RSS and media over Reticulum, then expose a local HTTP feed for your podcast app.
+---
 
-- RSS file: /file/ExampleNomadCastPodcast/rss.xml
-- Media path: /file/ExampleNomadCastPodcast/media/
+## Why this is worth a listen
 
-## Listen
+- **See the flow**: this page points to the RSS file, and the RSS file points to the media.
+- **Reticulum-ready**: everything is hosted under a Nomad Network `/file/` path.
+- **Easy to remix**: copy these files, rename the show, and publish your own.
 
-- Episode 001 — "Hello, NomadCast" (1.2 MB)
-  - Media: /file/ExampleNomadCastPodcast/media/ep001.mp3
-  - Duration: 00:02:34
-  - Published: 24 Jan 2026
+---
 
-If you are publishing your own podcast, keep your RSS standard RSS 2.0, include enclosure URLs, and keep the Reticulum identity hash stable so subscribers can keep their link.
+## Current episodes
+
+### 🎙️ CCC — Reticulum: Unstoppable Networks for The People
+
+A community talk about Reticulum as a people-first, unstoppable networking layer — the *why* behind resilient, local-first connectivity.
+
+- **Credit**: Chaos Communication Congress (CCC) community recording
+- **Media file**: `/file/ExampleNomadCastPodcast/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3`
+- **Repo file**: `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3`
+- **RSS entry**: see `examples/example.rss`
+
+### 🌐 Option Plus — How to Fix the Internet (Nostr, Reticulum, and other ideas)
+
+A hopeful, big-ideas conversation about rebuilding the internet with Nostr, Reticulum, and a constellation of other tools.
+
+- **Credit**: Option Plus podcast
+- **Media file**: `/file/ExampleNomadCastPodcast/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3`
+- **Repo file**: `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3`
+- **RSS entry**: see `examples/example.rss`
+
+---
+
+## Files you can copy
+
+- **RSS feed**: `/file/ExampleNomadCastPodcast/rss.xml` (source: `examples/example.rss`)
+- **Media folder**: `/file/ExampleNomadCastPodcast/media/` (source: `examples/media/`)
+
+---
+
+## Start your own show
+
+1. Copy `examples/example.rss` and update the channel title, description, and episode list.
+2. Drop your audio files into `examples/media/` and update the `<enclosure>` URLs.
+3. Host the RSS and media files under your Nomad Network node’s `/file/` path.
+4. Share a `nomadcast:` link with your Reticulum identity hash so listeners can subscribe in one click.
+
+When you’re ready, replace the credits above with your own show details and watch your podcast take off. 🚀
