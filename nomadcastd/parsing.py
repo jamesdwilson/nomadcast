@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from urllib.parse import quote, unquote
 
 NOMADCAST_PREFIX = "nomadcast:"
+NOMADCAST_URL_PREFIX = "nomadcast://"
 RSS_SUFFIX = "/rss"
 MEDIA_PREFIX = "/media/"
 MIN_DEST_HASH_LEN = 32
@@ -31,13 +32,19 @@ class Subscription:
         return f"{self.destination_hash}:{self.show_name}"
 
 
+def _strip_nomadcast_prefix(value: str) -> str:
+    if value.startswith(NOMADCAST_URL_PREFIX):
+        return value[len(NOMADCAST_URL_PREFIX) :]
+    if value.startswith(NOMADCAST_PREFIX):
+        return value[len(NOMADCAST_PREFIX) :]
+    raise ValueError("NomadCast URL must start with nomadcast:")
+
+
 def parse_subscription_uri(uri: str) -> Subscription:
     """Parse the README-defined subscription URI format."""
-    if not uri.startswith(NOMADCAST_PREFIX):
-        raise ValueError("Subscription URI must start with nomadcast:")
     if not uri.endswith(RSS_SUFFIX):
         raise ValueError("Subscription URI must end with /rss")
-    body = uri[len(NOMADCAST_PREFIX) : -len(RSS_SUFFIX)]
+    body = _strip_nomadcast_prefix(uri[:-len(RSS_SUFFIX)])
     if ":" not in body:
         raise ValueError("Subscription URI must include destination hash and show name")
     destination_hash, show_name = body.split(":", 1)
@@ -68,12 +75,10 @@ def decode_show_path(show_path: str) -> tuple[str, str]:
 
 def parse_nomadcast_media_url(url: str) -> tuple[str, str, str]:
     """Parse a nomadcast media URL and validate its filename."""
-    if not url.startswith(NOMADCAST_PREFIX):
-        raise ValueError("Not a nomadcast URL")
     if MEDIA_PREFIX not in url:
         raise ValueError("Not a nomadcast media URL")
     prefix, filename = url.split(MEDIA_PREFIX, 1)
-    body = prefix[len(NOMADCAST_PREFIX) :]
+    body = _strip_nomadcast_prefix(prefix)
     if ":" not in body:
         raise ValueError("Media URL must include destination hash and show name")
     destination_hash, show_name = body.split(":", 1)

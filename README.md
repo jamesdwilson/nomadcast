@@ -22,6 +22,7 @@ You subscribe to a normal URL (localhost). Your podcast app never needs to under
 - [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
 - [Community conventions](#community-conventions)
 - [How it works (more technical)](#how-it-works-more-technical)
+- [Source code guide](#source-code-guide)
 - [Protocol handler (nomadcast:)](#protocol-handler-nomadcast)
 - [Installation notes (developer-oriented)](#installation-notes-developer-oriented)
 - [Roadmap (future capabilities)](#roadmap-future-capabilities)
@@ -120,10 +121,13 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 
 ```mermaid
 flowchart LR
-  Listener[Listener + Podcast App] -->|Subscribe to localhost feed| NomadCast[nomadcastd]
-  NomadCast -->|Fetch RSS + media| Reticulum[Reticulum Network]
+  Listener[Listener + Podcast App] -->|GET /feeds + /media| Daemon[nomadcastd HTTP server]
+  UI[nomadcast UI] -->|Writes subscription URI| Config[config file]
+  Daemon -->|Loads subscriptions| Config
+  Daemon -->|Fetch RSS + media| Reticulum[Reticulum Network]
   Reticulum --> Publisher[Publisher RSS + Media]
-  NomadCast -->|Serve cached feed/media| Listener
+  Daemon --> Cache[(Local cache)]
+  Cache -->|Serve cached feed/media| Listener
 ```
 
 1. You add a show locator:
@@ -176,6 +180,24 @@ The daemon will:
 - Default bind: 127.0.0.1:5050
 - Rationale: common developer-local port, typically unprivileged, low collision with Reticulum tools.
 
+## Source code guide
+
+NomadCast is split into a UI package and a daemon package:
+
+- `nomadcast/`: v0 UI and protocol handler entrypoint.
+  - `__main__.py` handles CLI invocations (including protocol handler launches).
+  - `ui.py` normalizes locators, writes subscriptions to the config, and launches the Kivy UI.
+- `nomadcastd/`: the daemon implementation.
+  - `daemon.py` orchestrates refreshes, queueing, cache management, and RSS rewrites.
+  - `server.py` exposes the HTTP endpoints (`/feeds`, `/media`, `/reload`) and Range support.
+  - `rss.py` parses RSS and rewrites enclosure URLs to localhost.
+  - `parsing.py` validates `nomadcast:` locators and encodes/decodes show paths.
+  - `storage.py` owns on-disk layout helpers and atomic writes.
+  - `config.py` reads/writes the INI config format used by the daemon.
+  - `fetchers.py` defines the Reticulum fetcher interface (with a mock for tests).
+
+Tests live in `tests/` and focus on parsing, RSS rewriting, and HTTP range behavior.
+
 ## Protocol handler (nomadcast:)
 
 NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme.
@@ -187,7 +209,9 @@ Expectation:
 
 Publisher-facing link format (what you put on a NomadNet page):
 
-- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+- [Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+
+Both `nomadcast://` and the shorter `nomadcast:` form are accepted; use the double-slash form when you want a fully-qualified URL scheme in browsers.
 
 Listener side behavior (v0):
 1) Link click launches `nomadcast` with the full `nomadcast:...` URI as an argument.

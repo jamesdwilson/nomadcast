@@ -23,11 +23,15 @@ def normalize_subscription_input(raw_input: str) -> str:
 
     The README allows users to paste either:
     - nomadcast:<DEST_HASH>:<SHOW_NAME>/rss
+    - nomadcast://<DEST_HASH>:<SHOW_NAME>/rss
     - <DEST_HASH>:<SHOW_NAME>
     """
     trimmed = raw_input.strip()
     if not trimmed:
         raise ValueError("Subscription locator cannot be empty")
+
+    if trimmed.startswith("nomadcast://"):
+        trimmed = f"nomadcast:{trimmed[len('nomadcast://'):]}"
 
     if trimmed.startswith("nomadcast:"):
         if trimmed.endswith("/rss"):
@@ -309,5 +313,4 @@ class UiLauncher:
                 return handler
 
         NomadCastApp().run()
-
 
