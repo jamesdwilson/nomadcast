@@ -35,11 +35,12 @@ In other words: you subscribe to a normal `localhost` URL, and your podcast app 
 
 ## Privacy and total flexibility
 
-NomadCast is built to be aggressively private and radically user-controlled:
+NomadCast is built to be aggressively private and radically user-controlled for listeners and publishers alike:
 
 - **No data collection.** No accounts, no analytics, no telemetry, no usage data, no unique device IDs, no fingerprinting. Your listening habits never leave your machine. NomadCast only requests the exact Reticulum objects you ask it to fetch.
 - **Completely open source, MIT licensed.** Every line of code is inspectable and hackable, with a permissive license that keeps you in control.
 - **Your preferred player, your feeds, your network.** Pick the podcast app you already trust, then subscribe to any show you want from anywhere on the Reticulum network. NomadCast just bridges the gap and gets out of your way.
+- **Publisher-side freedom.** Publish at any bitrate, in any format. Audio-only, video podcasts, experimental formats — if your RSS references it, NomadCast will fetch it as-is over Reticulum.
 
 ## Contents
 
