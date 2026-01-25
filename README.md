@@ -120,7 +120,7 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
    Notes:
    - Nomad Network nodes can host files. In NomadNet content, files are typically linked under a `/file/` path. Episode media is still just a file, so keep it under the same `/file/` tree.
    - Keep your RSS a standard RSS 2.0 feed with `<enclosure>` URLs. NomadCast will rewrite those URLs for listeners.
-   - If you want a starting point, the `examples/example.rss` file is ready to copy and rename.
+   - If you want a starting point, the `examples/storage/files/ExampleNomadCastPodcast/feed.rss` file is ready to copy and rename.
 
 4. In your NomadNet page (or wherever you share the show), publish a locator that includes your Reticulum identity hash plus a human-readable show name:
    - <identity_hash:YourShowName>
@@ -131,12 +131,12 @@ Publisher requirement: the identity hash must be stable. Use your existing Nomad
 
 ## Examples tour
 
-If you learn best by example, there’s a small, cheerful sample podcast site in the `examples/` directory. You can open these files right now and adapt them for your own show:
+If you learn best by example, there’s a small, cheerful sample podcast site in the `examples/` directory. It is laid out like a fresh Nomad Network storage tree, so you can copy it directly into `~/.nomadnetwork/storage/` if you want a ready-to-run starter webroot. Think of it as a friendly mock webroot for someone brand new to NomadNet.
 
-- `examples/index.mu` — a rich NomadNet page with a subscribe button, episode summaries, and credits.
-- `examples/example.rss` — a standard RSS 2.0 feed wired up to the sample episodes (with credit notes in the metadata).
-- `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
-- `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
+- `examples/storage/pages/index.mu` — a rich NomadNet page with a subscribe button, episode summaries, and credits.
+- `examples/storage/files/ExampleNomadCastPodcast/feed.rss` — a standard RSS 2.0 feed wired up to the sample episodes (with credit notes in the metadata).
+- `examples/storage/files/ExampleNomadCastPodcast/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
+- `examples/storage/files/ExampleNomadCastPodcast/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
 
 Each file references the others so you can see the entire flow: NomadNet page → RSS feed → episode files. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
 
@@ -371,6 +371,16 @@ To add a subscription from the command line (simulating a protocol handler click
 ```bash
 python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
 ```
+
+To manage subscriptions directly with the daemon (handy for scripts or headless nodes):
+
+```bash
+python -m nomadcastd feeds ls
+python -m nomadcastd feeds add "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+python -m nomadcastd feeds rm "a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+```
+
+You can pair these with `--config` if you want to target a non-default config file.
 
 See:
 - Reticulum manual: https://markqvist.github.io/Reticulum/manual/
