@@ -3,10 +3,10 @@
   <channel>
     <title>Example NomadCast Podcast</title>
     <link>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/rss</link>
-    <description>Example RSS feed for a Reticulum-hosted podcast served through NomadCast.</description>
+    <description>Example RSS feed for a Reticulum-hosted podcast served through NomadCast, with episode files hosted under a Nomad Network /file/ path.</description>
     <language>en-us</language>
     <itunes:author>NomadCast Demo Crew</itunes:author>
-    <itunes:summary>A clean, production-shaped RSS file you can copy, rename, and publish with Nomad Network.</itunes:summary>
+    <itunes:summary>A clean, production-shaped RSS file you can copy, rename, and publish with Nomad Network; host your episode files under /file/.</itunes:summary>
     <itunes:explicit>false</itunes:explicit>
 
     <item>
