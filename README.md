@@ -12,6 +12,20 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2ECC71" />
 </p>
 
+---
+
+<div align="center">
+  <h2>🚧 Active Development — Expect Rough Edges 🚧</h2>
+  <p><strong>NomadCast is a work in progress.</strong> It may be incomplete, unstable, or not behave the way you expect yet.</p>
+  <p>
+    I welcome all feedback and ideas — please share what feels confusing, broken, or missing.
+    If you’re an average user, now is a great time to explore the concept: sketch your Reticulum podcast,
+    design your show page, and experiment with the flow. Just don’t expect it to be fully reliable quite yet.
+  </p>
+</div>
+
+---
+
 NomadCast is a friendly bridge between Reticulum-hosted podcasts and the podcast app you already love (Apple Podcasts, Overcast, Pocket Casts, etc.). It runs a tiny local service that looks like a normal HTTP podcast feed, while it quietly fetches the real RSS and audio over Reticulum behind the scenes.
 
 In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the magic for you.
