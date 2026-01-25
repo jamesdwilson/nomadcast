@@ -400,28 +400,15 @@ See:
 
 ## Roadmap (future capabilities)
 
-- Streaming attempt (best-effort):
-  - If a fast uplink exists (eg WiFi/Ethernet encapsulation of Reticulum), attempt on-demand fetch and stream over HTTP to the podcast client.
-  - Fall back to queue + retry semantics when the link cannot sustain streaming.
+Detailed tracking now lives in [ROADMAP.md](ROADMAP.md). The items below link to their fuller descriptions:
 
-- Better publisher discovery:
-  - Resolve human-friendly names to identities when naming systems in the ecosystem mature.
-  - Optional index pages or manifests that NomadCast can consume.
-
-- Richer caching logic:
-  - Per-feed cache windows (hours/days) and per-episode retention policies.
-  - Background refresh scheduling (eg “refresh every 6 hours when reachable”).
-  - Smarter eviction based on storage pressure.
-
-- Multiple publishing methods:
-  - Additional “how to publish” patterns (beyond Nomad Network file hosting), as community conventions emerge.
-
-- GUI expansion:
-  - Manage daemon lifecycle, edit subscribed feeds, view cache status.
-  - Optional system tray integration where supported.
-
-- Health endpoint:
-  - Add /health for local diagnostics and status.
+- [Streaming attempt (best-effort)](ROADMAP.md#streaming-attempt-best-effort)
+- [Better publisher discovery](ROADMAP.md#better-publisher-discovery)
+- [Richer caching logic](ROADMAP.md#richer-caching-logic)
+- [Multiple publishing methods](ROADMAP.md#multiple-publishing-methods)
+- [GUI expansion](ROADMAP.md#gui-expansion)
+- [Health endpoint](ROADMAP.md#health-endpoint)
+- [Daemon-managed hosting pipeline](ROADMAP.md#daemon-managed-hosting-pipeline)
 
 ## Related projects and references
 
