@@ -12,14 +12,15 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2ECC71" />
 </p>
 
-NomadCast lets you listen to podcasts hosted on Reticulum using normal podcast apps (Apple Podcasts, Overcast, Pocket Casts, etc.). It does this by running a small local service on your machine that looks like a normal HTTP podcast feed, while it fetches the real RSS and media opportunistically over Reticulum.
+NomadCast is a friendly bridge between Reticulum-hosted podcasts and the podcast app you already love (Apple Podcasts, Overcast, Pocket Casts, etc.). It runs a tiny local service that looks like a normal HTTP podcast feed, while it quietly fetches the real RSS and audio over Reticulum behind the scenes.
 
-You subscribe to a normal URL (localhost). Your podcast app never needs to understand Reticulum.
+In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the magic for you.
 
 ## Contents
 
 - [What a normal listener does](#what-a-normal-listener-does)
 - [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
+- [Examples tour](#examples-tour)
 - [Community conventions](#community-conventions)
 - [How it works (more technical)](#how-it-works-more-technical)
 - [Source code guide](#source-code-guide)
@@ -30,8 +31,10 @@ You subscribe to a normal URL (localhost). Your podcast app never needs to under
 
 ## What a normal listener does
 
+Think of this like subscribing to any other podcast, just with one extra helper app.
+
 1. Install NomadCast.
-2. Start the NomadCast daemon.
+2. Start the NomadCast daemon (it runs quietly in the background).
 3. Add a show by pasting a Reticulum podcast locator you found on a NomadNet page.
 4. Your podcast app opens and subscribes to a local URL like:
    - http://127.0.0.1:5050/feeds/<identity_hash:ShowName>
@@ -41,6 +44,8 @@ After that, your podcast app behaves normally: it sees an RSS feed, downloads ep
 ## What a publisher does (v0, simplest path)
 
 NomadCast does not generate RSS for you. You publish a normal podcast RSS file and normal media files, and you host them on your existing Reticulum setup using Nomad Network, which already supports hosting pages and files.
+
+If you want a concrete, copy-pastable reference, jump to the [examples tour](#examples-tour) for full sample files you can adapt.
 
 ### Publish steps (Nomad Network file hosting)
 
@@ -83,7 +88,8 @@ NomadCast installs itself as a system-wide protocol handler for `nomadcast://` l
 
    Notes:
    - Nomad Network nodes can host files. In NomadNet content, files are typically linked under a file/ path. See Nomad Network docs and community notes for file hosting conventions.
-   - Keep your RSS a standard RSS 2.0 feed with <enclosure> URLs. NomadCast will rewrite those URLs for listeners.
+   - Keep your RSS a standard RSS 2.0 feed with `<enclosure>` URLs. NomadCast will rewrite those URLs for listeners.
+   - If you want a starting point, the `examples/example.rss` file is ready to copy and rename.
 
 4. In your NomadNet page (or wherever you share the show), publish a locator that includes your Reticulum identity hash plus a human-readable show name:
    - <identity_hash:YourShowName>
@@ -91,6 +97,17 @@ NomadCast installs itself as a system-wide protocol handler for `nomadcast://` l
 Listeners paste that string into NomadCast.
 
 Publisher requirement: the identity hash must be stable. Use your existing NomadNet node identity (not a per-run random example identity) so the locator stays valid over time.
+
+## Examples tour
+
+If you learn best by example, there’s a small, cheerful sample podcast site in the `examples/` directory. You can open these files right now and adapt them for your own show:
+
+- `examples/index.mu` — a rich NomadNet page with a subscribe button, episode summaries, and credits.
+- `examples/example.rss` — a standard RSS 2.0 feed wired up to the sample episodes (with credit notes in the metadata).
+- `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
+- `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
+
+Each file references the others so you can see the entire flow: NomadNet page → RSS feed → media. You can use these as a template, rename things to your show, and publish with confidence.
 
 ## Community conventions
 
@@ -164,10 +181,10 @@ Reticulum transfer behavior (v0 expectations):
 NomadCast is a pass-through for publisher-defined RSS. It does not redesign feeds or strip metadata.
 
 It only rewrites:
-- <enclosure url="..."> and any other media URLs that point at the publisher’s Reticulum-hosted objects
+- `<enclosure url="...">` and any other media URLs that point at the publisher’s Reticulum-hosted objects
 
 Into:
-- http://127.0.0.1:5050/media/<identity_hash:ShowName>/<token>
+- `http://127.0.0.1:5050/media/<identity_hash:ShowName>/<token>`
 
 Everything else is preserved, byte-for-byte where feasible:
 - title, description, GUID, pubDate, iTunes tags, chapters, artwork references, etc.

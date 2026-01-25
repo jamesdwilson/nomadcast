@@ -1,20 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>Example NomadCast Podcast</title>
     <link>https://example.invalid/nomadcast</link>
-    <description>Minimal RSS feed for a Reticulum-hosted podcast via NomadCast.</description>
+    <description>Example RSS feed for a Reticulum-hosted podcast served through NomadCast.</description>
     <language>en-us</language>
+    <itunes:author>NomadCast Demo Crew</itunes:author>
+    <itunes:summary>A clean, production-shaped RSS file you can copy, rename, and publish with Nomad Network.</itunes:summary>
+    <itunes:explicit>false</itunes:explicit>
 
     <item>
-      <title>Episode 001: Hello, NomadCast</title>
-      <guid isPermaLink="false">ExampleNomadCastPodcast-ep001</guid>
+      <title>CCC — Reticulum: Unstoppable Networks for The People</title>
+      <guid isPermaLink="false">ExampleNomadCastPodcast-ccc-reticulum</guid>
       <pubDate>Sat, 24 Jan 2026 00:00:00 GMT</pubDate>
+      <itunes:author>Chaos Communication Congress (CCC)</itunes:author>
+      <itunes:subtitle>Reticulum as a people-first, unstoppable networking layer.</itunes:subtitle>
       <enclosure
-        url="nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:ExampleNomadCastPodcast/media/ep001.mp3"
-        length="12345678"
+        url="https://example.invalid/file/ExampleNomadCastPodcast/media/CCC%20-%20Reticulum%20-%20Unstoppable%20Networks%20for%20The%20People-smaller.mp3"
+        length="18464680"
         type="audio/mpeg" />
-      <description>Minimal episode description.</description>
+      <description><![CDATA[
+        A community talk titled “Reticulum: Unstoppable Networks for The People.” Credit to the Chaos
+        Communication Congress (CCC) community recording where the original talk appeared. Use this as
+        a placeholder and swap in your own episode details once you publish.
+      ]]></description>
+    </item>
+
+    <item>
+      <title>Option Plus — How to Fix the Internet (Nostr, Reticulum, and other ideas)</title>
+      <guid isPermaLink="false">ExampleNomadCastPodcast-option-plus-fix-internet</guid>
+      <pubDate>Sun, 25 Jan 2026 00:00:00 GMT</pubDate>
+      <itunes:author>Option Plus</itunes:author>
+      <itunes:subtitle>Big-ideas chat about rebuilding the internet.</itunes:subtitle>
+      <enclosure
+        url="https://example.invalid/file/ExampleNomadCastPodcast/media/Option%20Plus%20-%20How%20to%20fix%20the%20Internet%20%E2%80%93%20Nostr%2C%20Reticulum%20and%20other%20ideas.mp3"
+        length="0"
+        type="audio/mpeg" />
+      <description><![CDATA[
+        An Option Plus conversation about Nostr, Reticulum, and what comes next for the web.
+        Please replace this credit with the exact source details for your own show.
+      ]]></description>
     </item>
 
   </channel>
