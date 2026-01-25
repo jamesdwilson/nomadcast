@@ -57,6 +57,18 @@ Notes:
 - `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
 - The show name is cosmetic. The destination hash is authoritative.
 
+Micron example (NomadNet-friendly):
+
+```micron
+## Subscribe
+
+[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld)
+
+If that link does not open your podcast app, copy and paste that link into [NomadCast](https://github.com/jamesdwilson/nomadcast)
+```
+
+NomadCast installs itself as a system-wide protocol handler for `nomadcast://` links (and the shorter `nomadcast:` form), so clicking the link above will open NomadCast directly on supported systems.
+
 
 1. Install Nomad Network:
    - pip install nomadnet
@@ -186,6 +198,8 @@ Listener side behavior (v0):
 
 Then `nomadcast` exits.
 
+The installer (or package) configures the OS to route `nomadcast://` links to the NomadCast app, so any publisher-facing page can rely on the scheme opening NomadCast when it is installed.
+
 ## Installation notes (developer-oriented)
 
 NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
@@ -234,4 +248,3 @@ See:
 - rBrowser (NomadNet browser UI): https://github.com/fr33n0w/rBrowser
 - Reticulum OpenAPI (community experiment): https://github.com/FreeTAKTeam/Reticulum_OpenAPI
 - Kivy: https://kivy.org/doc/stable/
-
