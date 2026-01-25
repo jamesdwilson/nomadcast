@@ -20,6 +20,21 @@ NomadCast does not generate RSS for you. You publish a normal podcast RSS file a
 
 ### Publish steps (Nomad Network file hosting)
 
+In your NomadNet page (or wherever you share the show), publish a normal-looking subscribe link that points to the NomadCast locator. This keeps the page clean and gives users one obvious action.
+
+Example:
+
+- [Subscribe to this podcast](nomadcast:\<destination_hash\>:BestPodcastInTheWorld/rss)
+
+If you want a fallback for users who cannot click the link, include the raw locator on the next line:
+
+- `nomadcast:\<destination_hash\>:BestPodcastInTheWorld/rss`
+
+Notes:
+- `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
+- The show name is cosmetic. The destination hash is authoritative.
+
+
 1. Install Nomad Network:
    - pip install nomadnet
 
@@ -158,3 +173,6 @@ See:
 - rBrowser (NomadNet browser UI): https://github.com/fr33n0w/rBrowser
 - Reticulum OpenAPI (community experiment): https://github.com/FreeTAKTeam/Reticulum_OpenAPI
 - Kivy: https://kivy.org/doc/stable/
+
+
+
