@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example NomadCast Podcast</title>
+    <link>https://example.invalid/nomadcast</link>
+    <description>Minimal RSS feed for a Reticulum-hosted podcast via NomadCast.</description>
+    <language>en-us</language>
+
+    <item>
+      <title>Episode 001: Hello, NomadCast</title>
+      <guid isPermaLink="false">ExampleNomadCastPodcast-ep001</guid>
+      <pubDate>Sat, 24 Jan 2026 00:00:00 GMT</pubDate>
+      <enclosure
+        url="nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:ExampleNomadCastPodcast/media/ep001.mp3"
+        length="12345678"
+        type="audio/mpeg" />
+      <description>Minimal episode description.</description>
+    </item>
+
+  </channel>
+</rss>
