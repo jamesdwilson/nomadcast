@@ -79,7 +79,9 @@ In your NomadNet page (or wherever you share the show), publish a normal-looking
 
 Example:
 
-- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+```micron
+[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+```
 
 If you want a fallback for users who cannot click the link, include the raw locator on the next line:
 
@@ -88,6 +90,9 @@ If you want a fallback for users who cannot click the link, include the raw loca
 Notes:
 - `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
 - The show name is cosmetic. The destination hash is authoritative.
+- Since NomadCast is a new project, consider linking your podcast page back to this repo so listeners can install NomadCast and start using your show right away.
+
+If this project helps you out, a star, watch, share, or a gentle mention goes a long way. Thanks for helping NomadCast find its people. 💛
 
 Micron example (NomadNet-friendly):
 
