@@ -6,7 +6,7 @@ Welcome to **Example NomadCast Podcast**, a miniature podcast portal that shows 
 
 ## Subscribe ✨
 
-[**Subscribe to this podcast**](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20%3AExampleNomadCastPodcast)
+[**Subscribe to this podcast**](nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/rss)
 
 If that link doesn’t open your podcast app, paste it into [NomadCast](https://github.com/jamesdwilson/nomadcast). NomadCast will open your podcast app and handle the local feed URL for you.
 
@@ -51,9 +51,10 @@ A hopeful, big-ideas conversation about rebuilding the internet with Nostr, Reti
 
 ## Start your own show
 
-1. Copy `examples/example.rss` and update the channel title, description, and episode list.
-2. Drop your audio files into `examples/media/` and update the `<enclosure>` URLs.
-3. Host the RSS and media files under your Nomad Network node’s `/file/` path.
-4. Share a `nomadcast:` link with your Reticulum identity hash so listeners can subscribe in one click.
+1. Replace the placeholder hash `0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f` with your node’s Reticulum identity hash.
+2. Copy `examples/example.rss` and update the channel title, description, and episode list.
+3. Drop your audio files into `examples/media/` and update the `<enclosure>` URLs.
+4. Host the RSS and media files under your Nomad Network node’s `/file/` path.
+5. Share a `nomadcast:` link with your Reticulum identity hash so listeners can subscribe in one click.
 
 When you’re ready, replace the credits above with your own show details and watch your podcast take off. 🚀
