@@ -65,11 +65,11 @@ Think of this like subscribing to any other podcast, just with one extra helper 
 4. NomadCast adds the show to its config and launches your regular podcast player with a local URL like:
    - http://127.0.0.1:5050/feeds/<identity_hash:ShowName>
 
-After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and media available even when Reticulum is slow or offline by serving a local cache.
+After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and episode files available even when Reticulum is slow or offline by serving a local cache.
 
 ## What a publisher does (v0, simplest path)
 
-NomadCast does not generate RSS for you. You publish a normal podcast RSS file and normal media files, and you host them on your existing Reticulum setup using Nomad Network, which already supports hosting pages and files.
+NomadCast does not generate RSS for you. You publish a normal podcast RSS file and normal episode files, and you host them on your existing Reticulum setup using Nomad Network, which already supports hosting pages and files.
 
 If you want a concrete, copy-pastable reference, jump to the [examples tour](#examples-tour) for full sample files you can adapt.
 
@@ -113,12 +113,12 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
 2. Run Nomad Network once to initialize your config:
    - nomadnet
 
-3. Put your podcast RSS and media files into your node storage:
+3. Put your podcast RSS and episode files into your node storage (Nomad Network hosts them under `/file/`):
    - RSS: ~/.nomadnetwork/storage/files/\<YourShow\>/feed.rss
-   - Media: ~/.nomadnetwork/storage/files/\<YourShow\>/media/<episode files>
+   - Episode files: ~/.nomadnetwork/storage/files/\<YourShow\>/media/<episode files>
 
    Notes:
-   - Nomad Network nodes can host files. In NomadNet content, files are typically linked under a file/ path. See Nomad Network docs and community notes for file hosting conventions.
+   - Nomad Network nodes can host files. In NomadNet content, files are typically linked under a `/file/` path. Episode media is still just a file, so keep it under the same `/file/` tree.
    - Keep your RSS a standard RSS 2.0 feed with `<enclosure>` URLs. NomadCast will rewrite those URLs for listeners.
    - If you want a starting point, the `examples/example.rss` file is ready to copy and rename.
 
@@ -138,13 +138,13 @@ If you learn best by example, there’s a small, cheerful sample podcast site in
 - `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
 - `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
 
-Each file references the others so you can see the entire flow: NomadNet page → RSS feed → media. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
+Each file references the others so you can see the entire flow: NomadNet page → RSS feed → episode files. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
 
 ## Community conventions
 
 NomadCast aims to follow Reticulum community norms for discoverability and publishing:
 
-- Use Nomad Network file hosting paths (`/file/`) for RSS and media links when publishing on NomadNet pages.
+- Use Nomad Network file hosting paths (`/file/`) for RSS and episode file links when publishing on NomadNet pages.
 - Treat the Reticulum identity hash as the canonical show identifier; the human-readable name is optional and cosmetic.
 - Keep RSS feeds standard RSS 2.0 (and iTunes-compatible) so clients and tooling remain interoperable.
 
