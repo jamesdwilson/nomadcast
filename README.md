@@ -149,8 +149,15 @@ flowchart LR
 
 6. The daemon serves from local cache if available.
    - If not cached, it queues a Reticulum fetch.
+   - Reticulum fetches are application-level requests over an established Link, delivered using Resource (or Bundle for larger payloads).
    - v0 behavior: it returns an HTTP error quickly (to keep the podcast app from hanging) while the episode is queued for retrieval.
    - When the fetch completes, the next attempt succeeds.
+
+Reticulum transfer behavior (v0 expectations):
+- Resource transfers are reliable while the Link stays up (packetization, sequencing, integrity checks, retransmits).
+- Reticulum does not provide transparent "resume from byte offset" across a broken Link.
+- NomadCast v0 retries from scratch if an episode transfer is interrupted.
+- Future resume behavior, if desired, should be implemented at the application layer by chunking and deduplicating (for example via Bundle and chunk hashes).
 
 ### RSS rewriting rules (v0)
 
