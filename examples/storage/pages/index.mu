@@ -33,8 +33,8 @@ A community talk about Reticulum as a people-first, unstoppable networking layer
 
 - **{c:teal}Credit{c}:** Chaos Communication Congress (CCC) community recording
 - **{c:teal}Episode file{c}:** `/file/ExampleNomadCastPodcast/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3`
-- **{c:teal}Repo file{c}:** `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3`
-- **{c:teal}RSS entry{c}:** see `examples/example.rss`
+- **{c:teal}Repo file{c}:** `examples/storage/files/ExampleNomadCastPodcast/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3`
+- **{c:teal}RSS entry{c}:** see `examples/storage/files/ExampleNomadCastPodcast/feed.rss`
 
 ### {c:orange}🌐 Option Plus — How to Fix the Internet (Nostr, Reticulum, and other ideas){c}
 
@@ -42,23 +42,23 @@ A hopeful, big-ideas conversation about rebuilding the internet with Nostr, Reti
 
 - **{c:teal}Credit{c}:** Option Plus podcast
 - **{c:teal}Episode file{c}:** `/file/ExampleNomadCastPodcast/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3`
-- **{c:teal}Repo file{c}:** `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3`
-- **{c:teal}RSS entry{c}:** see `examples/example.rss`
+- **{c:teal}Repo file{c}:** `examples/storage/files/ExampleNomadCastPodcast/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3`
+- **{c:teal}RSS entry{c}:** see `examples/storage/files/ExampleNomadCastPodcast/feed.rss`
 
 ---
 
 ## {c:teal}Files you can copy{c}
 
-- **{c:orange}RSS feed{c}:** `/file/ExampleNomadCastPodcast/rss.xml`  {c:mutedred}(source: `examples/example.rss`){c}
-- **{c:orange}Episode folder{c}:** `/file/ExampleNomadCastPodcast/media/`  {c:mutedred}(source: `examples/media/`){c}
+- **{c:orange}RSS feed{c}:** `/file/ExampleNomadCastPodcast/feed.rss`  {c:mutedred}(source: `examples/storage/files/ExampleNomadCastPodcast/feed.rss`){c}
+- **{c:orange}Episode folder{c}:** `/file/ExampleNomadCastPodcast/media/`  {c:mutedred}(source: `examples/storage/files/ExampleNomadCastPodcast/media/`){c}
 
 ---
 
 ## {c:teal}Start your own show{c}
 
 1. Replace the placeholder hash `{c:orange}0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f{c}` with your node's Reticulum identity hash.
-2. Copy `examples/example.rss` and update the channel title, description, and episode list.
-3. Drop your audio files into `examples/media/` and update the `<enclosure>` URLs.
+2. Copy `examples/storage/files/ExampleNomadCastPodcast/feed.rss` and update the channel title, description, and episode list.
+3. Drop your audio files into `examples/storage/files/ExampleNomadCastPodcast/media/` and update the `<enclosure>` URLs.
 4. Host the RSS and episode files under your Nomad Network node's `/file/` path.
 5. Share a `nomadcast:` link with your Reticulum identity hash so listeners can subscribe in one click.
 
