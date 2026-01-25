@@ -10,6 +10,9 @@
   <img alt="Ecosystem" src="https://img.shields.io/badge/community-nomadnet-1B998B" />
   <img alt="Status" src="https://img.shields.io/badge/status-experimental-F39C12" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2ECC71" />
+  <img alt="Data collection" src="https://img.shields.io/badge/data%20collection-none-00C853" />
+  <img alt="Usage data" src="https://img.shields.io/badge/usage%20data-none-00C853" />
+  <img alt="System identifiers" src="https://img.shields.io/badge/system%20identifiers-none-00C853" />
 </p>
 
 ---
@@ -29,6 +32,14 @@
 NomadCast is a friendly bridge between Reticulum-hosted podcasts and the podcast app you already love (Apple Podcasts, Overcast, Pocket Casts, etc.). It runs a tiny local service that looks like a normal HTTP podcast feed, while it quietly fetches the real RSS and audio over Reticulum behind the scenes.
 
 In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the magic for you.
+
+## Privacy and total flexibility
+
+NomadCast is built to be aggressively private and radically user-controlled:
+
+- **No data collection.** No accounts, no analytics, no telemetry, no usage data, no unique device IDs, no fingerprinting. Your listening habits never leave your machine. NomadCast only requests the exact Reticulum objects you ask it to fetch.
+- **Completely open source, MIT licensed.** Every line of code is inspectable and hackable, with a permissive license that keeps you in control.
+- **Your preferred player, your feeds, your network.** Pick the podcast app you already trust, then subscribe to any show you want from anywhere on the Reticulum network. NomadCast just bridges the gap and gets out of your way.
 
 ## Contents
 
