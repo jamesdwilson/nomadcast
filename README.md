@@ -1,3 +1,26 @@
+## Protocol handler (nomadcast:)
+
+NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme.
+
+Expectation:
+- NomadNet users can click a `nomadcast:` link and NomadCast will open.
+- NomadCast will add the subscription to the daemon config.
+- NomadCast will then auto-launch the system `podcast://` handler to subscribe the user’s podcast app to the local feed URL.
+
+Publisher-facing link format (what you put on a NomadNet page):
+
+- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+
+Listener side behavior (v0):
+1) Link click launches `nomadcast` with the full `nomadcast:...` URI as an argument.
+2) `nomadcast` writes the subscription to config and triggers daemon reload.
+3) `nomadcast` opens:
+
+- podcast://127.0.0.1:5050/feeds/a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld
+
+Then `nomadcast` exits.
+
+
 # NomadCast
 
 NomadCast lets you listen to podcasts hosted on Reticulum using normal podcast apps (Apple Podcasts, Overcast, Pocket Casts, etc.). It does this by running a small local service on your machine that looks like a normal HTTP podcast feed, while it fetches the real RSS and media opportunistically over Reticulum.
@@ -24,11 +47,11 @@ In your NomadNet page (or wherever you share the show), publish a normal-looking
 
 Example:
 
-- [Subscribe to this podcast](nomadcast:\<destination_hash\>:BestPodcastInTheWorld/rss)
+- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
 
 If you want a fallback for users who cannot click the link, include the raw locator on the next line:
 
-- `nomadcast:\<destination_hash\>:BestPodcastInTheWorld/rss`
+- `nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss`
 
 Notes:
 - `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
