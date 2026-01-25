@@ -121,7 +121,7 @@ If you learn best by example, there’s a small, cheerful sample podcast site in
 - `examples/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
 - `examples/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
 
-Each file references the others so you can see the entire flow: NomadNet page → RSS feed → media. You can use these as a template, rename things to your show, and publish with confidence.
+Each file references the others so you can see the entire flow: NomadNet page → RSS feed → media. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
 
 ## Community conventions
 

@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>Example NomadCast Podcast</title>
-    <link>https://example.invalid/nomadcast</link>
+    <link>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/rss</link>
     <description>Example RSS feed for a Reticulum-hosted podcast served through NomadCast.</description>
     <language>en-us</language>
     <itunes:author>NomadCast Demo Crew</itunes:author>
@@ -16,7 +16,7 @@
       <itunes:author>Chaos Communication Congress (CCC)</itunes:author>
       <itunes:subtitle>Reticulum as a people-first, unstoppable networking layer.</itunes:subtitle>
       <enclosure
-        url="https://example.invalid/file/ExampleNomadCastPodcast/media/CCC%20-%20Reticulum%20-%20Unstoppable%20Networks%20for%20The%20People-smaller.mp3"
+        url="nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/media/CCC%20-%20Reticulum%20-%20Unstoppable%20Networks%20for%20The%20People-smaller.mp3"
         length="18464680"
         type="audio/mpeg" />
       <description><![CDATA[
@@ -33,7 +33,7 @@
       <itunes:author>Option Plus</itunes:author>
       <itunes:subtitle>Big-ideas chat about rebuilding the internet.</itunes:subtitle>
       <enclosure
-        url="https://example.invalid/file/ExampleNomadCastPodcast/media/Option%20Plus%20-%20How%20to%20fix%20the%20Internet%20%E2%80%93%20Nostr%2C%20Reticulum%20and%20other%20ideas.mp3"
+        url="nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/media/Option%20Plus%20-%20How%20to%20fix%20the%20Internet%20%E2%80%93%20Nostr%2C%20Reticulum%20and%20other%20ideas.mp3"
         length="0"
         type="audio/mpeg" />
       <description><![CDATA[
