@@ -1,31 +1,31 @@
-## Protocol handler (nomadcast:)
+<p align="center">
+  <img src="assets/nomadcast-logo.png" alt="NomadCast logo" width="160" />
+</p>
 
-NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme.
+<h1 align="center">NomadCast</h1>
 
-Expectation:
-- NomadNet users can click a `nomadcast:` link and NomadCast will open.
-- NomadCast will add the subscription to the daemon config.
-- NomadCast will then auto-launch the system `podcast://` handler to subscribe the user’s podcast app to the local feed URL.
-
-Publisher-facing link format (what you put on a NomadNet page):
-
-- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
-
-Listener side behavior (v0):
-1) Link click launches `nomadcast` with the full `nomadcast:...` URI as an argument.
-2) `nomadcast` writes the subscription to config and triggers daemon reload.
-3) `nomadcast` opens:
-
-- podcast://127.0.0.1:5050/feeds/a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld
-
-Then `nomadcast` exits.
-
-
-# NomadCast
+<p align="center">
+  <img alt="Language" src="https://img.shields.io/badge/language-python-3776AB?logo=python&logoColor=white" />
+  <img alt="Protocol" src="https://img.shields.io/badge/protocol-reticulum-0B3D91" />
+  <img alt="Ecosystem" src="https://img.shields.io/badge/community-nomadnet-1B998B" />
+  <img alt="Status" src="https://img.shields.io/badge/status-experimental-F39C12" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-2ECC71" />
+</p>
 
 NomadCast lets you listen to podcasts hosted on Reticulum using normal podcast apps (Apple Podcasts, Overcast, Pocket Casts, etc.). It does this by running a small local service on your machine that looks like a normal HTTP podcast feed, while it fetches the real RSS and media opportunistically over Reticulum.
 
 You subscribe to a normal URL (localhost). Your podcast app never needs to understand Reticulum.
+
+## Contents
+
+- [What a normal listener does](#what-a-normal-listener-does)
+- [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
+- [Community conventions](#community-conventions)
+- [How it works (more technical)](#how-it-works-more-technical)
+- [Protocol handler (nomadcast:)](#protocol-handler-nomadcast)
+- [Installation notes (developer-oriented)](#installation-notes-developer-oriented)
+- [Roadmap (future capabilities)](#roadmap-future-capabilities)
+- [Related projects and references](#related-projects-and-references)
 
 ## What a normal listener does
 
@@ -79,6 +79,14 @@ Listeners paste that string into NomadCast.
 
 Publisher requirement: the identity hash must be stable. Use your existing NomadNet node identity (not a per-run random example identity) so the locator stays valid over time.
 
+## Community conventions
+
+NomadCast aims to follow Reticulum community norms for discoverability and publishing:
+
+- Use Nomad Network file hosting paths (`/file/`) for RSS and media links when publishing on NomadNet pages.
+- Treat the Reticulum identity hash as the canonical show identifier; the human-readable name is optional and cosmetic.
+- Keep RSS feeds standard RSS 2.0 (and iTunes-compatible) so clients and tooling remain interoperable.
+
 ## How it works (more technical)
 
 ### Components
@@ -97,6 +105,14 @@ Publisher requirement: the identity hash must be stable. Use your existing Nomad
   - After adding a show, it opens the local subscription URL in the OS (so your default podcast handler can take over).
 
 ### Data flow
+
+```mermaid
+flowchart LR
+  Listener[Listener + Podcast App] -->|Subscribe to localhost feed| NomadCast[nomadcastd]
+  NomadCast -->|Fetch RSS + media| Reticulum[Reticulum Network]
+  Reticulum --> Publisher[Publisher RSS + Media]
+  NomadCast -->|Serve cached feed/media| Listener
+```
 
 1. You add a show locator:
    - <identity_hash:ShowName>
@@ -148,6 +164,28 @@ The daemon will:
 - Default bind: 127.0.0.1:5050
 - Rationale: common developer-local port, typically unprivileged, low collision with Reticulum tools.
 
+## Protocol handler (nomadcast:)
+
+NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme.
+
+Expectation:
+- NomadNet users can click a `nomadcast:` link and NomadCast will open.
+- NomadCast will add the subscription to the daemon config.
+- NomadCast will then auto-launch the system `podcast://` handler to subscribe the user’s podcast app to the local feed URL.
+
+Publisher-facing link format (what you put on a NomadNet page):
+
+- [Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+
+Listener side behavior (v0):
+1) Link click launches `nomadcast` with the full `nomadcast:...` URI as an argument.
+2) `nomadcast` writes the subscription to config and triggers daemon reload.
+3) `nomadcast` opens:
+
+- podcast://127.0.0.1:5050/feeds/a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld
+
+Then `nomadcast` exits.
+
 ## Installation notes (developer-oriented)
 
 NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
@@ -196,6 +234,4 @@ See:
 - rBrowser (NomadNet browser UI): https://github.com/fr33n0w/rBrowser
 - Reticulum OpenAPI (community experiment): https://github.com/FreeTAKTeam/Reticulum_OpenAPI
 - Kivy: https://kivy.org/doc/stable/
-
-
 
