@@ -108,14 +108,20 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
 
 
 1. Install Nomad Network:
-   - pip install nomadnet
+   ```bash
+   pip install nomadnet
+   ```
 
 2. Run Nomad Network once to initialize your config:
-   - nomadnet
+   ```bash
+   nomadnet
+   ```
 
 3. Put your podcast RSS and episode files into your node storage (Nomad Network hosts them under `/file/`):
-   - RSS: ~/.nomadnetwork/storage/files/\<YourShow\>/feed.rss
-   - Episode files: ~/.nomadnetwork/storage/files/\<YourShow\>/media/<episode files>
+   ```text
+   RSS: ~/.nomadnetwork/storage/files/<YourShow>/feed.rss
+   Episode files: ~/.nomadnetwork/storage/files/<YourShow>/media/<episode files>
+   ```
 
    Notes:
    - Nomad Network nodes can host files. In NomadNet content, files are typically linked under a `/file/` path. Episode media is still just a file, so keep it under the same `/file/` tree.
@@ -123,7 +129,9 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
    - If you want a starting point, the `examples/storage/files/ExampleNomadCastPodcast/feed.rss` file is ready to copy and rename.
 
 4. In your NomadNet page (or wherever you share the show), publish a locator that includes your Reticulum identity hash plus a human-readable show name:
-   - <identity_hash:YourShowName>
+   ```text
+   <identity_hash:YourShowName>
+   ```
 
 Listeners paste that string into NomadCast.
 
@@ -373,6 +381,8 @@ python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
 ```
 
 To manage subscriptions directly with the daemon (handy for scripts or headless nodes):
+
+Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscriptions from the daemon's config:
 
 ```bash
 python -m nomadcastd feeds ls
