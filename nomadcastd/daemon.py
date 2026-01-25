@@ -183,7 +183,8 @@ class NomadCastDaemon:
             context.refresh_pending = False
         try:
             # README: fetch publisher RSS over Reticulum and store raw bytes.
-            rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, "rss")
+            rss_path = f"file/{context.subscription.show_name}/feed.rss"
+            rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, rss_path)
             write_atomic(context.show_dir / "publisher_rss.xml", rss_bytes)
             _, items = parse_rss_items(rss_bytes)
             ordered_items = items
@@ -250,7 +251,8 @@ class NomadCastDaemon:
             if (context.episodes_dir / filename).exists():
                 return
             # README: fetch media/<filename> over Reticulum.
-            payload = self.fetcher.fetch_bytes(context.subscription.destination_hash, f"media/{filename}")
+            media_path = f"file/{context.subscription.show_name}/media/{filename}"
+            payload = self.fetcher.fetch_bytes(context.subscription.destination_hash, media_path)
             if self.config.max_bytes_per_show > 0:
                 if not self._ensure_space_for(context, len(payload)):
                     self.logger.warning("Skipping %s: exceeds max_bytes_per_show", filename)

@@ -23,7 +23,7 @@ class MockFetcher(Fetcher):
     media_payload: bytes = b""
 
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
-        if resource_path == "rss":
+        if resource_path == "rss" or resource_path.endswith("/feed.rss"):
             return self.rss_payload
         return self.media_payload
 
@@ -33,7 +33,8 @@ class ReticulumFetcher(Fetcher):
 
     TODO: Implement Reticulum (RNS) request handling for resource retrieval.
     The interface should resolve the destination hash to an RNS Identity and
-    request the provided resource path (rss or media/<filename>).
+    request the provided resource path (file/<show>/feed.rss or
+    file/<show>/media/<filename>).
     """
 
     def __init__(self, config_dir: str | None = None) -> None:
