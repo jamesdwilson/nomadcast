@@ -96,7 +96,11 @@ def _load_subscription_uris(config_path: Path) -> list[str]:
 def load_config(config_path: Path | None = None) -> NomadCastConfig:
     """Load the NomadCast config using the README search order."""
     if config_path is None:
-        config_path = next((path for path in DEFAULT_CONFIG_PATHS if path.exists()), None)
+        env_override = os.getenv("NOMADCAST_CONFIG", "").strip()
+        if env_override:
+            config_path = Path(env_override).expanduser()
+        else:
+            config_path = next((path for path in DEFAULT_CONFIG_PATHS if path.exists()), None)
     if config_path is None:
         config_path = DEFAULT_CONFIG_PATHS[-1]
     if not config_path.exists():

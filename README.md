@@ -268,6 +268,86 @@ NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
 
 - Python daemon uses RNS.
 - Minimal UI is Kivy.
+- NomadNet is only required for publishers hosting files; listeners running the daemon do not need it.
+
+### Developer quickstart
+
+Create a virtual environment, install dependencies, and (optionally) set a config override:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+The daemon is stdlib-only, but the GUI requires Kivy. If you skip the GUI, you can omit the `pip install` step.
+If you want to override the config path, export `NOMADCAST_CONFIG` (the `.env` file is provided as a convenience for tools like direnv).
+
+```bash
+export NOMADCAST_CONFIG=~/.nomadcast/config
+```
+
+### Configuration (daemon)
+
+NomadCast reads an INI config file from (first found):
+
+1. `NOMADCAST_CONFIG` (if set)
+2. `/etc/nomadcast/config`
+3. `~/.config/nomadcast/config`
+4. `~/.nomadcast/config`
+
+Default config (created on first run):
+
+```ini
+[nomadcast]
+listen_host = 127.0.0.1
+listen_port = 5050
+storage_path = ~/.nomadcast/storage
+episodes_per_show = 5
+strict_cached_enclosures = yes
+rss_poll_seconds = 900
+retry_backoff_seconds = 300
+max_bytes_per_show = 0
+public_host =
+
+[subscriptions]
+uri =
+
+[reticulum]
+config_dir =
+```
+
+Reticulum/NomadNet considerations:
+
+- `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
+- `reticulum.config_dir` lets you point NomadCast at a specific Reticulum/NomadNet config folder if you run multiple nodes.
+- `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
+- `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
+
+### Run unit tests
+
+```bash
+python -m unittest
+```
+
+### Start the daemon (nomadcastd)
+
+```bash
+python -m nomadcastd
+```
+
+### Start the GUI (nomadcast)
+
+```bash
+python -m nomadcast
+```
+
+To add a subscription from the command line (simulating a protocol handler click):
+
+```bash
+python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+```
 
 See:
 - Reticulum manual: https://markqvist.github.io/Reticulum/manual/
