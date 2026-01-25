@@ -6,6 +6,7 @@ README requires a fetch_bytes(destination_hash, resource_path) interface and
 allows a mock implementation for tests while real RNS integration is pending.
 """
 
+import importlib.util
 from dataclasses import dataclass
 
 
@@ -34,6 +35,10 @@ class ReticulumFetcher(Fetcher):
     """
 
     def __init__(self, config_dir: str | None = None) -> None:
+        if importlib.util.find_spec("RNS") is None:
+            raise RuntimeError(
+                "Reticulum (RNS) is not installed. Install it before starting nomadcastd."
+            )
         self.config_dir = config_dir
 
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
