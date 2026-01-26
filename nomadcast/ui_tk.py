@@ -137,7 +137,6 @@ class TkUiLauncher:
 
         root.withdraw()
         self._apply_tray_window_hints(root)
-        maybe_prompt_install_app(root)
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
@@ -302,4 +301,5 @@ class TkUiLauncher:
         if not start_tray_icon():
             self._center_window(root)
             self._animate_visibility(root, show=True)
+        root.after(0, lambda: maybe_prompt_install_app(root))
         root.mainloop()
