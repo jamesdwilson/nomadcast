@@ -4,6 +4,7 @@ import os
 import platform
 import subprocess
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -85,6 +86,7 @@ def _install_app_bundle(applications_dir: Path) -> Path:
 
     macos_dir.mkdir(parents=True, exist_ok=True)
     resources_dir.mkdir(parents=True, exist_ok=True)
+    icon_name = _write_app_icon(resources_dir)
 
     executable_path.write_text(
         textwrap.dedent(
@@ -96,6 +98,13 @@ def _install_app_bundle(applications_dir: Path) -> Path:
         encoding="utf-8",
     )
     executable_path.chmod(0o755)
+
+    icon_entry = (
+        f"                <key>CFBundleIconFile</key>\n"
+        f"                <string>{icon_name}</string>\n"
+        if icon_name
+        else ""
+    )
 
     info_plist.write_text(
         textwrap.dedent(
@@ -112,7 +121,7 @@ def _install_app_bundle(applications_dir: Path) -> Path:
                 <string>{APP_BUNDLE_ID}</string>
                 <key>CFBundleExecutable</key>
                 <string>{executable_path.name}</string>
-                <key>CFBundlePackageType</key>
+{icon_entry}                <key>CFBundlePackageType</key>
                 <string>APPL</string>
                 <key>CFBundleVersion</key>
                 <string>1.0</string>
@@ -126,6 +135,53 @@ def _install_app_bundle(applications_dir: Path) -> Path:
     )
 
     return bundle_dir
+
+
+def _write_app_icon(resources_dir: Path) -> str | None:
+    source_icon = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
+    if not source_icon.exists():
+        return None
+
+    icns_name = "NomadCast.icns"
+    icns_path = resources_dir / icns_name
+    try:
+        _convert_png_to_icns(source_icon, icns_path)
+    except OSError:
+        return None
+    return icns_name if icns_path.exists() else None
+
+
+def _convert_png_to_icns(source_icon: Path, icns_path: Path) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        iconset_dir = Path(tmp_dir) / "NomadCast.iconset"
+        iconset_dir.mkdir(parents=True, exist_ok=True)
+        sizes = [16, 32, 64, 128, 256, 512, 1024]
+        for size in sizes:
+            output_path = iconset_dir / f"icon_{size}x{size}.png"
+            subprocess.run(
+                ["sips", "-z", str(size), str(size), str(source_icon), "--out", str(output_path)],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if size <= 512:
+                retina_size = size * 2
+                retina_path = iconset_dir / f"icon_{size}x{size}@2x.png"
+                subprocess.run(
+                    ["sips", "-z", str(retina_size), str(retina_size), str(source_icon), "--out", str(retina_path)],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+        subprocess.run(
+            ["iconutil", "-c", "icns", str(iconset_dir), "-o", str(icns_path)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    if not icns_path.exists():
+        raise OSError("Failed to generate icns icon.")
 
 
 def _relaunch_from_app(bundle_path: Path, root: object) -> None:
