@@ -155,7 +155,7 @@ class TkUiLauncher:
             text=(
                 "Paste a NomadCast locator to subscribe. "
                 "NomadCast will add the feed to your local daemon and open "
-                "your podcast app."
+                "your podcast app once the first episode finishes downloading."
             ),
             wraplength=640,
         )
