@@ -30,7 +30,7 @@ public_host =
 uri =
 
 [reticulum]
-config_dir =
+config_dir = ~/.reticulum
 destination_app = nomadnet
 destination_aspects = file
 """

@@ -8,6 +8,7 @@ import logging
 import socket
 import sys
 from pathlib import Path
+from dataclasses import replace
 
 from nomadcastd.config import load_config, load_subscriptions, add_subscription_uri, remove_subscription_uri
 from nomadcastd.parsing import encode_show_path, normalize_subscription_input, parse_subscription_uri
@@ -70,10 +71,12 @@ def _add_feed(locator: str, config_path: Path | None) -> int:
     return 0
 
 
-def _run_daemon(config_path: Path | None) -> int:
+def _run_daemon(config_path: Path | None, reticulum_override: Path | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
+    if reticulum_override is not None:
+        config = replace(config, reticulum_config_dir=str(reticulum_override))
     daemon = NomadCastDaemon(config=config)
     daemon.start()
 
@@ -87,10 +90,16 @@ def _run_daemon(config_path: Path | None) -> int:
         config.listen_port,
         config.public_host or "(none)",
     )
-    logger.info(
-        "Reticulum interface config source: config_dir=%s",
-        config.reticulum_config_dir or "(default Reticulum config, e.g. ~/.reticulum)",
-    )
+    if reticulum_override is not None:
+        logger.info(
+            "Reticulum interface config source: config_dir=%s (from --config directory override)",
+            config.reticulum_config_dir,
+        )
+    else:
+        logger.info(
+            "Reticulum interface config source: config_dir=%s",
+            config.reticulum_config_dir or "(default Reticulum config, e.g. ~/.reticulum)",
+        )
     logger.info(
         "Reticulum destination app/aspects: app=%s aspects=%s",
         config.reticulum_destination_app,
@@ -167,6 +176,10 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     config_path = Path(args.config) if args.config else None
+    reticulum_override: Path | None = None
+    if config_path is not None and config_path.exists() and config_path.is_dir():
+        reticulum_override = config_path
+        config_path = None
 
     if args.command == "feeds":
         if args.feeds_command == "ls":
@@ -178,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         feeds_parser.print_help()
         return 1
 
-    return _run_daemon(config_path)
+    return _run_daemon(config_path, reticulum_override)
 
 
 if __name__ == "__main__":
