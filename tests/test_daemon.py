@@ -46,7 +46,7 @@ class DaemonBehaviorTests(unittest.TestCase):
     def _add_show(self, daemon: NomadCastDaemon) -> tuple[str, ShowContext]:
         """Attach a single show context to the daemon under test."""
         subscription = parse_subscription_uri(
-            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
         )
         show_dir = show_directory(self.storage_path, subscription.destination_hash)
         dirs = ensure_show_dirs(show_dir)

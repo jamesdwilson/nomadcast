@@ -8,7 +8,7 @@ Welcome to **{c:orange}Example NomadCast Podcast{c}**, a miniature podcast porta
 
 ## {c:orange}Subscribe{c} ✨
 
-[**{c:teal}Subscribe to this podcast{c}**](nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/rss)
+[**{c:teal}Subscribe to this podcast{c}**](nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast)
 
 {c:mutedred}If the link does not open your podcast app:{c} copy and paste it into NomadCast:
 [NomadCast](https://github.com/jamesdwilson/nomadcast)
