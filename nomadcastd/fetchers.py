@@ -38,13 +38,7 @@ class ReticulumFetcher(Fetcher):
     """
 
     def __init__(self, config_dir: str | None = None) -> None:
-        if importlib.util.find_spec("RNS") is None:
-            raise RuntimeError(
-                "Reticulum (RNS) is not installed. Install it before starting nomadcastd."
-            )
-        import RNS  # noqa: N811
-
-        self._rns = RNS
+        self._rns = self._load_rns()
         self._ensure_reticulum(config_dir)
         self.config_dir = config_dir
 
@@ -71,6 +65,42 @@ class ReticulumFetcher(Fetcher):
     _reticulum_instance = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
+
+    def _load_rns(self):
+        rns_spec = importlib.util.find_spec("RNS")
+        reticulum_spec = importlib.util.find_spec("reticulum")
+        if rns_spec is None and reticulum_spec is None:
+            raise RuntimeError(
+                "Reticulum is not installed. Install the 'reticulum' package before starting nomadcastd."
+            )
+        if rns_spec is not None:
+            module = importlib.import_module("RNS")
+            self._validate_rns_module(module)
+            return module
+        reticulum_module = importlib.import_module("reticulum")
+        if hasattr(reticulum_module, "RNS"):
+            module = reticulum_module.RNS
+            self._validate_rns_module(module)
+            return module
+        if importlib.util.find_spec("reticulum.RNS") is not None:
+            module = importlib.import_module("reticulum.RNS")
+            self._validate_rns_module(module)
+            return module
+        self._validate_rns_module(reticulum_module)
+        return reticulum_module
+
+    def _validate_rns_module(self, module) -> None:
+        missing = [
+            name
+            for name in ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
+            if not hasattr(module, name)
+        ]
+        if missing:
+            missing_list = ", ".join(missing)
+            raise RuntimeError(
+                "Reticulum import does not expose required symbols "
+                f"({missing_list}). Ensure the Reticulum Python package is installed correctly."
+            )
 
     def _ensure_reticulum(self, config_dir: str | None) -> None:
         cls = type(self)
