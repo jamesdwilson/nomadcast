@@ -219,7 +219,7 @@ class ReticulumFetcher(Fetcher):
             module = reticulum_module.RNS
             self._validate_rns_module(module)
             return module
-        if importlib.util.find_spec("reticulum.RNS") is not None:
+        if self._safe_find_spec("reticulum.RNS") is not None:
             module = importlib.import_module("reticulum.RNS")
             self._validate_rns_module(module)
             return module
@@ -243,7 +243,7 @@ class ReticulumFetcher(Fetcher):
             if hasattr(module, symbol):
                 continue
             for candidate in self._candidate_rns_modules(module.__name__, symbol):
-                if importlib.util.find_spec(candidate) is None:
+                if self._safe_find_spec(candidate) is None:
                     continue
                 submodule = importlib.import_module(candidate)
                 if hasattr(submodule, symbol):
@@ -264,6 +264,13 @@ class ReticulumFetcher(Fetcher):
             seen.add(candidate)
             unique.append(candidate)
         return unique
+
+    def _safe_find_spec(self, module_name: str) -> importlib.machinery.ModuleSpec | None:
+        """Return a module spec while tolerating missing parent packages."""
+        try:
+            return importlib.util.find_spec(module_name)
+        except ModuleNotFoundError:
+            return None
 
     def _ensure_reticulum(self, config_dir: str | None) -> None:
         """Initialize the Reticulum singleton if needed."""
