@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 """NomadCast v0 UI helpers."""
+import logging
 import webbrowser
 from dataclasses import dataclass
 from typing import Callable
@@ -45,6 +46,7 @@ class SubscriptionService:
 
     def __init__(self, config_loader: Callable[[], NomadCastConfig] = load_config) -> None:
         self._config_loader = config_loader
+        self._logger = logging.getLogger(__name__)
 
     def add_subscription(self, locator: str) -> UiStatus:
         """Add a subscription and open the podcast handler URL."""
@@ -55,16 +57,29 @@ class SubscriptionService:
 
         feed_url = _subscription_feed_url(subscription, config)
         handler_url = _podcast_handler_url(feed_url)
+        self._logger.info("Opening podcast handler for %s", feed_url)
         webbrowser.open(handler_url, new=2)
 
         if added:
+            self._logger.info(
+                "Subscription added for %s; waiting for daemon to fetch RSS and episodes.",
+                feed_url,
+            )
             return UiStatus(
-                message=f"Added subscription. Opening podcast app for {feed_url}.",
+                message=(
+                    "Added subscription. Opening your podcast app now. "
+                    "NomadCast is fetching the show details and first episode—"
+                    "refresh your podcast app in a minute."
+                ),
                 is_error=False,
             )
 
+        self._logger.info("Subscription already exists for %s", feed_url)
         return UiStatus(
-            message=f"Subscription already exists. Opening podcast app for {feed_url}.",
+            message=(
+                "Subscription already exists. Opening your podcast app now. "
+                "If the feed isn't ready yet, give it a moment and refresh."
+            ),
             is_error=False,
         )
 
@@ -87,4 +102,3 @@ class SubscriptionService:
     def health_endpoint(self) -> UiStatus:
         """Future roadmap stub: local health endpoint UI."""
         raise NotImplementedError("Health endpoint UI is not implemented yet.")
-
