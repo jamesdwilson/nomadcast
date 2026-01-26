@@ -393,6 +393,13 @@ class NomadCastDaemon:
         if not context:
             self.logger.debug("Refresh skipped: missing context for %s", show_id)
             return
+        self.logger.info(
+            "Refresh start show_id=%s destination=%s show_name=%s storage=%s",
+            show_id,
+            context.subscription.destination_hash,
+            context.subscription.show_name,
+            context.show_dir,
+        )
         with context.lock:
             context.refresh_pending = False
         try:
@@ -401,10 +408,10 @@ class NomadCastDaemon:
             self.logger.info("Refreshing RSS for %s (%s)", show_id, rss_path)
             self.logger.debug("Fetching RSS for %s at %s", show_id, rss_path)
             rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, rss_path)
-            self.logger.debug("Fetched RSS for %s (%d bytes)", show_id, len(rss_bytes))
+            self.logger.info("Fetched RSS for %s (%d bytes)", show_id, len(rss_bytes))
             write_atomic(context.show_dir / "publisher_rss.xml", rss_bytes)
             _, items = parse_rss_items(rss_bytes)
-            self.logger.debug("Parsed %d RSS items for %s", len(items), show_id)
+            self.logger.info("Parsed %d RSS items for %s", len(items), show_id)
             ordered_items = items
             if any(item.pub_date is not None for item in items):
                 ordered_items = sorted(
@@ -413,7 +420,7 @@ class NomadCastDaemon:
                     reverse=True,
                 )
             selected_items = ordered_items[: self.config.episodes_per_show]
-            self.logger.debug(
+            self.logger.info(
                 "Selected %d item(s) for %s (episodes_per_show=%s)",
                 len(selected_items),
                 show_id,
@@ -438,6 +445,12 @@ class NomadCastDaemon:
                         continue
                     order_map[filename] = index
                     if not (context.episodes_dir / filename).exists():
+                        self.logger.info(
+                            "Queueing media fetch show_id=%s filename=%s order_index=%s",
+                            show_id,
+                            filename,
+                            index,
+                        )
                         self.enqueue_media_fetch(show_id, filename)
             with context.lock:
                 context.order_map = order_map
@@ -446,7 +459,7 @@ class NomadCastDaemon:
                 context.state.failure_count = 0
                 context.state.cached_episodes = self._load_cached_episodes(context, order_map)
                 save_show_state(context.state_path, context.state)
-            self.logger.debug(
+            self.logger.info(
                 "Refresh updated state for %s: cached=%d order_map=%d",
                 show_id,
                 len(context.state.cached_episodes),
@@ -536,17 +549,19 @@ class NomadCastDaemon:
                 return
             # README: fetch media/<filename> over Reticulum.
             media_path = f"/file/{context.subscription.show_name}/media/{filename}"
-            self.logger.debug("Fetching media for %s/%s at %s", show_id, filename, media_path)
+            self.logger.info("Fetching media for %s/%s at %s", show_id, filename, media_path)
             payload = self.fetcher.fetch_bytes(context.subscription.destination_hash, media_path)
-            self.logger.debug("Fetched media for %s/%s (%d bytes)", show_id, filename, len(payload))
+            self.logger.info("Fetched media for %s/%s (%d bytes)", show_id, filename, len(payload))
             if self.config.max_bytes_per_show > 0:
                 if not self._ensure_space_for(context, len(payload)):
                     self.logger.warning("Skipping %s: exceeds max_bytes_per_show", filename)
                     return
             # README: write atomically via tmp/ then move to episodes/.
             tmp_path = context.tmp_dir / filename
+            self.logger.info("Writing media to tmp path %s (%d bytes)", tmp_path, len(payload))
             write_atomic(tmp_path, payload)
             final_path = context.episodes_dir / filename
+            self.logger.info("Promoting media to final path %s", final_path)
             tmp_path.replace(final_path)
             with context.lock:
                 order_index = context.order_map.get(filename, len(context.order_map))
@@ -554,7 +569,7 @@ class NomadCastDaemon:
                     CachedEpisode(filename=filename, order_index=order_index, size_bytes=len(payload))
                 )
                 save_show_state(context.state_path, context.state)
-            self.logger.debug("Updated cached episodes for %s/%s", show_id, filename)
+            self.logger.info("Updated cached episodes for %s/%s", show_id, filename)
             self._rebuild_client_rss(context)
             self.logger.info("Cached media %s for %s", filename, show_id)
         except Exception as exc:
