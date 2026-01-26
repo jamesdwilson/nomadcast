@@ -8,7 +8,7 @@ Welcome to **{c:orange}Example NomadCast Podcast{c}**, a miniature podcast porta
 
 ## {c:orange}Subscribe{c} ✨
 
-[**{c:teal}Subscribe to this podcast{c}**](nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast)
+[**{c:teal}Subscribe to this podcast{c}**](nomadcast://0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast)
 
 {c:mutedred}If the link does not open your podcast app:{c} copy and paste it into NomadCast:
 [NomadCast](https://github.com/jamesdwilson/nomadcast)
@@ -60,6 +60,6 @@ A hopeful, big-ideas conversation about rebuilding the internet with Nostr, Reti
 2. Copy `examples/storage/files/ExampleNomadCastPodcast/feed.rss` and update the channel title, description, and episode list.
 3. Drop your audio files into `examples/storage/files/ExampleNomadCastPodcast/media/` and update the `<enclosure>` URLs.
 4. Host the RSS and episode files under your Nomad Network node's `/file/` path.
-5. Share a `nomadcast:` link with your Reticulum identity hash so listeners can subscribe in one click.
+5. Share a `nomadcast://` link with your Reticulum identity hash so listeners can subscribe in one click.
 
 {c:mutedred}When you are ready, replace the credits above with your own show details and ship it.{c}
