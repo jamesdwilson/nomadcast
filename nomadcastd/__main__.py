@@ -13,7 +13,7 @@ from nomadcastd.config import load_config, load_subscriptions, add_subscription_
 from nomadcastd.parsing import encode_show_path, normalize_subscription_input, parse_subscription_uri
 from nomadcastd.daemon import NomadCastDaemon
 from nomadcastd.server import NomadCastHTTPServer, NomadCastRequestHandler
-from nomadcastd.reticulum_import import maybe_prompt_nomadnet_interface_import
+from nomadcastd.reticulum_import import ensure_nomadnet_interfaces
 
 
 def _local_feed_base_url(config) -> str:
@@ -75,7 +75,10 @@ def _run_daemon(config_path: Path | None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
-    if maybe_prompt_nomadnet_interface_import(config, logger):
+    ready, reload_config = ensure_nomadnet_interfaces(config, logger)
+    if not ready:
+        return 1
+    if reload_config:
         config = load_config(config_path=config_path)
     daemon = NomadCastDaemon(config=config)
     daemon.start()

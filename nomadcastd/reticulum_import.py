@@ -69,6 +69,72 @@ def maybe_prompt_nomadnet_interface_import(
     return True
 
 
+def ensure_nomadnet_interfaces(config: NomadCastConfig, logger: logging.Logger) -> tuple[bool, bool]:
+    """Ensure NomadCast uses a dedicated Reticulum config with NomadNet interfaces.
+
+    Returns:
+        (ready, reload_config): ready indicates whether startup can proceed.
+        reload_config is True if the NomadCast config file was modified and
+        should be reloaded.
+    """
+    config_dir = Path(config.reticulum_config_dir).expanduser() if config.reticulum_config_dir else None
+    reload_config = False
+
+    if config_dir is None:
+        logger.warning(
+            "Reticulum config_dir is not set. NomadCast requires imported NomadNet interfaces to start."
+        )
+        if not sys.stdin.isatty():
+            logger.error(
+                "Cannot prompt to import NomadNet interfaces in a non-interactive session. "
+                "Run nomadcastd interactively once or set reticulum.config_dir to %s.",
+                NOMADCAST_RETICULUM_DIR,
+            )
+            return False, False
+        if not maybe_prompt_nomadnet_interface_import(config, logger):
+            logger.error(
+                "NomadNet interface import was not completed. "
+                "NomadCast will not start without imported interfaces."
+            )
+            return False, False
+        reload_config = True
+        config_dir = NOMADCAST_RETICULUM_DIR
+
+    if config_dir != NOMADCAST_RETICULUM_DIR:
+        logger.error(
+            "NomadCast requires its own Reticulum config at %s. "
+            "Other Reticulum config directories are not supported to avoid ambiguity.",
+            NOMADCAST_RETICULUM_DIR,
+        )
+        return False, reload_config
+
+    reticulum_config_path = config_dir / "config"
+    if not reticulum_config_path.exists():
+        logger.error(
+            "NomadCast Reticulum config not found at %s. "
+            "Run nomadcastd interactively to import NomadNet interfaces.",
+            reticulum_config_path,
+        )
+        return False, reload_config
+
+    interface_block = _extract_interfaces_block(
+        reticulum_config_path.read_text(encoding="utf-8")
+    )
+    if not _has_interface_entries(interface_block):
+        logger.error(
+            "NomadCast Reticulum config at %s does not include any [interfaces] entries. "
+            "Re-run the NomadNet interface import.",
+            reticulum_config_path,
+        )
+        return False, reload_config
+
+    logger.info(
+        "NomadCast Reticulum config verified at %s with imported NomadNet interfaces.",
+        reticulum_config_path,
+    )
+    return True, reload_config
+
+
 def _import_nomadnet_interfaces(config_path: Path, logger: logging.Logger) -> bool:
     if NOMADCAST_RETICULUM_CONFIG.exists():
         logger.info(
@@ -121,6 +187,18 @@ def _extract_interfaces_block(source_text: str) -> list[str]:
     while block and not block[-1].strip():
         block.pop()
     return block
+
+
+def _has_interface_entries(block: list[str]) -> bool:
+    """Return True when the [interfaces] block contains at least one entry."""
+    if not block:
+        return False
+    for line in block[1:]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("#", ";")):
+            continue
+        return True
+    return False
 
 
 def _record_prompt_stamp(logger: logging.Logger) -> None:
