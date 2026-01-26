@@ -10,9 +10,16 @@ import sys
 from pathlib import Path
 
 from nomadcastd.config import load_config, load_subscriptions, add_subscription_uri, remove_subscription_uri
-from nomadcastd.parsing import normalize_subscription_input
+from nomadcastd.parsing import encode_show_path, normalize_subscription_input, parse_subscription_uri
 from nomadcastd.daemon import NomadCastDaemon
 from nomadcastd.server import NomadCastHTTPServer, NomadCastRequestHandler
+
+
+def _local_feed_base_url(config) -> str:
+    host = config.public_host
+    if not host:
+        host = config.listen_host if config.listen_host != "0.0.0.0" else "127.0.0.1"
+    return f"http://{host}:{config.listen_port}"
 
 
 def _list_feeds(config_path: Path | None) -> int:
@@ -21,8 +28,15 @@ def _list_feeds(config_path: Path | None) -> int:
     if not subscriptions:
         print("No feeds configured.")
         return 0
+    base_url = _local_feed_base_url(config)
     for uri in subscriptions:
-        print(uri)
+        try:
+            subscription = parse_subscription_uri(uri)
+        except ValueError:
+            print(uri)
+            continue
+        show_path = encode_show_path(subscription.destination_hash, subscription.show_name)
+        print(f"{uri}\n  local: {base_url}/feeds/{show_path}")
     return 0
 
 
