@@ -342,3 +342,47 @@ def remove_subscription_uri(config_path: Path, uri: str) -> bool:
     if removed:
         config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     return removed
+
+
+def set_reticulum_config_dir(config_path: Path, config_dir: Path) -> None:
+    """Set the [reticulum] config_dir value in the NomadCast config file."""
+    ensure_default_config(config_path)
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    reticulum_section_start: int | None = None
+    reticulum_section_end: int | None = None
+    config_dir_index: int | None = None
+    in_reticulum = False
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_reticulum and reticulum_section_end is None:
+                reticulum_section_end = index
+            section_name = stripped[1:-1].strip().lower()
+            in_reticulum = section_name == "reticulum"
+            if in_reticulum:
+                reticulum_section_start = index
+            continue
+
+        if in_reticulum and "=" in stripped:
+            key, _ = stripped.split("=", 1)
+            if key.strip().lower() == "config_dir":
+                config_dir_index = index
+
+    rendered_value = str(config_dir)
+    if reticulum_section_start is None:
+        new_lines = lines + ["", "[reticulum]", f"config_dir = {rendered_value}"]
+    else:
+        if reticulum_section_end is None:
+            reticulum_section_end = len(lines)
+        if config_dir_index is not None:
+            lines[config_dir_index] = f"config_dir = {rendered_value}"
+            new_lines = lines
+        else:
+            new_lines = (
+                lines[:reticulum_section_end]
+                + [f"config_dir = {rendered_value}"]
+                + lines[reticulum_section_end:]
+            )
+
+    config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
