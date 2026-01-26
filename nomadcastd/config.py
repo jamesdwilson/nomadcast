@@ -64,9 +64,86 @@ def _parse_bool(value: str | None, default: bool) -> bool:
 
 def _load_config_parser(config_path: Path) -> configparser.ConfigParser:
     """Load the INI config file from disk."""
-    parser = configparser.ConfigParser(strict=False)
+    parser = configparser.ConfigParser(strict=False, inline_comment_prefixes=("#", ";"))
     parser.read(config_path)
     return parser
+
+
+def _get_string_value(
+    section: configparser.SectionProxy | dict,
+    key: str,
+    default: str,
+    config_path: Path,
+    *,
+    warn_if_blank: bool = False,
+) -> str:
+    if key in section:
+        value = str(section.get(key, "")).strip()
+        if not value:
+            if warn_if_blank:
+                logging.getLogger(__name__).warning(
+                    "Config value for %s is blank in %s; using default %s.",
+                    key,
+                    config_path,
+                    default,
+                )
+            return default
+        return value
+    return default
+
+
+def _get_int_value(
+    section: configparser.SectionProxy | dict,
+    key: str,
+    default: int,
+    config_path: Path,
+    *,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int:
+    if key not in section:
+        return default
+    raw_value = str(section.get(key, "")).strip()
+    if not raw_value:
+        logging.getLogger(__name__).warning(
+            "Config value for %s is blank in %s; using default %s.",
+            key,
+            config_path,
+            default,
+        )
+        return default
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            "Config value for %s (%s) in %s is invalid; using default %s.",
+            key,
+            raw_value,
+            config_path,
+            default,
+        )
+        return default
+    if min_value is not None and parsed < min_value:
+        logging.getLogger(__name__).warning(
+            "Config value for %s (%s) in %s is below %s; using default %s.",
+            key,
+            parsed,
+            config_path,
+            min_value,
+            default,
+        )
+        return default
+    if max_value is not None and parsed > max_value:
+        logging.getLogger(__name__).warning(
+            "Config value for %s (%s) in %s exceeds %s; using default %s.",
+            key,
+            parsed,
+            config_path,
+            max_value,
+            default,
+        )
+        return default
+    return parsed
 
 
 def _load_subscription_uris(config_path: Path) -> list[str]:
@@ -111,14 +188,43 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
     section = parser["nomadcast"] if parser.has_section("nomadcast") else {}
 
     # Defaults mirror README-required keys in [nomadcast].
-    listen_host = section.get("listen_host", "127.0.0.1").strip()
-    listen_port = int(section.get("listen_port", "5050"))
-    storage_path = Path(os.path.expanduser(section.get("storage_path", "~/.nomadcast/storage")))
-    episodes_per_show = int(section.get("episodes_per_show", "5"))
+    listen_host = _get_string_value(
+        section,
+        "listen_host",
+        "127.0.0.1",
+        config_path,
+        warn_if_blank=True,
+    )
+    listen_port = _get_int_value(
+        section,
+        "listen_port",
+        5050,
+        config_path,
+        min_value=1,
+        max_value=65535,
+    )
+    storage_path = Path(
+        os.path.expanduser(
+            _get_string_value(
+                section,
+                "storage_path",
+                "~/.nomadcast/storage",
+                config_path,
+                warn_if_blank=True,
+            )
+        )
+    )
+    episodes_per_show = _get_int_value(section, "episodes_per_show", 5, config_path, min_value=1)
     strict_cached_enclosures = _parse_bool(section.get("strict_cached_enclosures", "yes"), True)
-    rss_poll_seconds = int(section.get("rss_poll_seconds", "900"))
-    retry_backoff_seconds = int(section.get("retry_backoff_seconds", "300"))
-    max_bytes_per_show = int(section.get("max_bytes_per_show", "0"))
+    rss_poll_seconds = _get_int_value(section, "rss_poll_seconds", 900, config_path, min_value=1)
+    retry_backoff_seconds = _get_int_value(
+        section,
+        "retry_backoff_seconds",
+        300,
+        config_path,
+        min_value=1,
+    )
+    max_bytes_per_show = _get_int_value(section, "max_bytes_per_show", 0, config_path, min_value=0)
     public_host = section.get("public_host", "").strip() or None
 
     reticulum_config_dir = None

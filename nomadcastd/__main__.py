@@ -3,7 +3,9 @@ from __future__ import annotations
 """CLI entrypoint for nomadcastd per README daemon description."""
 
 import argparse
+import errno
 import logging
+import socket
 import sys
 from pathlib import Path
 
@@ -56,20 +58,49 @@ def _add_feed(locator: str, config_path: Path | None) -> int:
 
 def _run_daemon(config_path: Path | None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
     daemon = NomadCastDaemon(config=config)
     daemon.start()
 
-    if config.listen_host not in {"127.0.0.1", "localhost"}:
-        logging.getLogger("nomadcastd").warning(
+    if config.reticulum_config_dir is None:
+        logger.info("Reticulum config_dir not set; using Reticulum defaults (e.g. ~/.reticulum).")
+
+    if config.listen_host not in {"127.0.0.1", "localhost", "::1"}:
+        logger.warning(
             "Binding to non-localhost address %s:%s exposes your feed server.",
             config.listen_host,
             config.listen_port,
         )
 
-    server = NomadCastHTTPServer((config.listen_host, config.listen_port), NomadCastRequestHandler)
+    try:
+        server = NomadCastHTTPServer((config.listen_host, config.listen_port), NomadCastRequestHandler)
+    except OSError as exc:
+        logger.error("Failed to bind HTTP server on %s:%s.", config.listen_host, config.listen_port)
+        if isinstance(exc, socket.gaierror):
+            logger.error(
+                "The listen_host %r could not be resolved. Check for blank or commented values in %s; "
+                "set listen_host to 127.0.0.1 or localhost, or remove it to use the default.",
+                config.listen_host,
+                config.config_path,
+            )
+        elif exc.errno == errno.EADDRINUSE:
+            logger.error(
+                "Port %s is already in use. Stop the other process or change listen_port in %s.",
+                config.listen_port,
+                config.config_path,
+            )
+        elif exc.errno in {errno.EACCES, errno.EPERM}:
+            logger.error(
+                "Permission denied binding to port %s. Use a port above 1024 or adjust permissions.",
+                config.listen_port,
+            )
+        else:
+            logger.error("OS error while binding: %s", exc)
+        daemon.stop()
+        return 1
     server.daemon = daemon
-    logging.getLogger("nomadcastd").info(
+    logger.info(
         "NomadCast daemon listening on http://%s:%s", config.listen_host, config.listen_port
     )
     try:
