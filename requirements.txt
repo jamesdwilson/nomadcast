@@ -1,2 +1,1 @@
-# Core dependency for the Kivy UI. The daemon itself is stdlib-only.
-kivy>=2.2.0
+# NomadCast daemon and Tkinter UI are stdlib-only.

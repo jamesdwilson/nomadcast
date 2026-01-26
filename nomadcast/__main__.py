@@ -7,7 +7,8 @@ import sys
 from typing import NoReturn
 
 from nomadcast.protocol_handler import ensure_protocol_handler_registered
-from nomadcast.ui import SubscriptionService, UiLauncher, UiUnavailableError
+from nomadcast.ui import SubscriptionService
+from nomadcast.ui_tk import TkUiLauncher
 
 
 def _run_protocol_handler(locator: str) -> int:
@@ -35,12 +36,7 @@ def main() -> NoReturn:
     if args.locator:
         sys.exit(_run_protocol_handler(args.locator))
 
-    launcher = UiLauncher()
-    try:
-        launcher.launch()
-    except UiUnavailableError as exc:
-        print(exc)
-        sys.exit(1)
+    TkUiLauncher().launch()
 
 
 if __name__ == "__main__":

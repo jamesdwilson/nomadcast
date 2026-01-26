@@ -13,6 +13,7 @@
   <img alt="Data collection" src="https://img.shields.io/badge/data%20collection-none-00C853" />
   <img alt="Usage data" src="https://img.shields.io/badge/usage%20data-none-00C853" />
   <img alt="System identifiers" src="https://img.shields.io/badge/system%20identifiers-none-00C853" />
+  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-00C853" />
 </p>
 
 ---
@@ -170,7 +171,7 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
     - Episode media objects referenced by the RSS feed
 
 - nomadcast (UI, v0)
-  - A minimal Kivy prompt that collects a show locator and writes it to the daemon config.
+  - A minimal Tkinter prompt that collects a show locator and writes it to the daemon config.
   - After adding a show, it opens the local subscription URL in the OS (so your default podcast handler can take over).
 
 ### Data flow
@@ -249,7 +250,8 @@ NomadCast is split into a UI package and a daemon package:
 
 - `nomadcast/`: v0 UI and protocol handler entrypoint.
   - `__main__.py` handles CLI invocations (including protocol handler launches).
-  - `ui.py` normalizes locators, writes subscriptions to the config, and launches the Kivy UI.
+  - `ui.py` normalizes locators and writes subscriptions to the config.
+  - `ui_tk.py` launches the Tkinter UI.
 - `nomadcastd/`: the daemon implementation.
   - `daemon.py` orchestrates refreshes, queueing, cache management, and RSS rewrites.
   - `server.py` exposes the HTTP endpoints (`/feeds`, `/media`, `/reload`) and Range support.
@@ -298,21 +300,21 @@ This means any publisher-facing page can rely on the scheme opening NomadCast af
 NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
 
 - Python daemon uses RNS.
-- Minimal UI is Kivy.
+- Minimal UI is Tkinter.
 - NomadNet is only required for publishers hosting files; listeners running the daemon do not need it.
 
 ### Developer quickstart
 
-Create a virtual environment, install dependencies, and (optionally) set a config override:
+NomadCast has no third-party runtime dependencies right now. The easiest path is: clone the repo and run the `python -m` commands below—no install step required.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
 cp .env.example .env
 ```
 
-The daemon is stdlib-only, but the GUI requires Kivy. If you skip the GUI, you can omit the `pip install` step.
+If you like isolated environments, you can still use a venv; `requirements.txt` is intentionally empty because everything runs on the Python standard library.
+We can add packaging metadata later to support a one-liner `pipx install` experience, but for now the simplest option is just running from the repo.
 If you want to override the config path, export `NOMADCAST_CONFIG` (the `.env` file is provided as a convenience for tools like direnv).
 
 ```bash
@@ -396,7 +398,6 @@ See:
 - Reticulum manual: https://markqvist.github.io/Reticulum/manual/
 - Reticulum site mirror: https://reticulum.network/manual/
 - Nomad Network: https://github.com/markqvist/NomadNet
-- Kivy docs: https://kivy.org/doc/stable/
 
 ## Roadmap (future capabilities)
 
@@ -419,4 +420,3 @@ Detailed tracking now lives in [ROADMAP.md](ROADMAP.md). The items below link to
 - MeshChat (web UI LXMF client): https://github.com/liamcottle/reticulum-meshchat
 - rBrowser (NomadNet browser UI): https://github.com/fr33n0w/rBrowser
 - Reticulum OpenAPI (community experiment): https://github.com/FreeTAKTeam/Reticulum_OpenAPI
-- Kivy: https://kivy.org/doc/stable/
