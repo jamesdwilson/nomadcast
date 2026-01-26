@@ -14,6 +14,14 @@ Improve discoverability with human-friendly naming and optional index/manifest f
 
 Add configurable cache windows, retention policies, background refresh scheduling, and smarter eviction when storage pressure is detected.
 
+## First-subscribe delivery strategies (podcast clients)
+
+Explore alternatives to the initial 503 response when a feed cache is empty, especially for clients like Apple Podcasts that treat 503 as “feed not found.” Consider:
+
+- **Blocking wait on first request**: hold the HTTP response briefly until the first RSS/episode is cached. **Pros:** avoids placeholder feeds, increases chance the client accepts the real feed. **Cons:** can stall clients and ties up server threads.
+- **Startup warm-up**: prefetch feeds/episodes on daemon start or reload. **Pros:** no placeholder feed, first request likely a cache hit. **Cons:** higher startup cost, wasteful if many subscriptions are rarely used.
+- **Client-specific handling**: detect known strict clients and adapt (wait longer or return a different status). **Pros:** limits impact to problematic clients. **Cons:** brittle UA sniffing, harder to test.
+
 ## Multiple publishing methods
 
 Document additional publishing patterns beyond Nomad Network file hosting as community conventions evolve.
