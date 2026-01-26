@@ -15,7 +15,13 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TypedDict
+
+
+class ShowDirs(TypedDict):
+    show_dir: Path
+    episodes_dir: Path
+    tmp_dir: Path
 
 
 @dataclass
@@ -80,7 +86,7 @@ def show_directory(base_path: Path, destination_hash: str) -> Path:
     return base_path / "shows" / destination_hash
 
 
-def ensure_show_dirs(show_dir: Path) -> dict[str, Path]:
+def ensure_show_dirs(show_dir: Path) -> ShowDirs:
     """Ensure the show storage layout exists (episodes/, tmp/, etc.).
 
     Side Effects:

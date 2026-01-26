@@ -30,6 +30,7 @@ from nomadcastd.storage import (
     ensure_show_dirs,
     load_show_state,
     save_show_state,
+    ShowDirs,
     ShowState,
     show_directory,
     write_atomic,
@@ -154,7 +155,7 @@ class NomadCastDaemon:
         for subscription in subscriptions:
             show_id = subscription.show_id
             show_dir = show_directory(self.config.storage_path, subscription.destination_hash)
-            dirs = ensure_show_dirs(show_dir)
+            dirs: ShowDirs = ensure_show_dirs(show_dir)
             state_path = show_dir / "state.json"
             state = load_show_state(state_path, subscription.uri, subscription.show_name)
             context = self.show_contexts.get(show_id)

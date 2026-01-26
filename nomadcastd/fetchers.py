@@ -10,9 +10,77 @@ import importlib.util
 import threading
 import time
 from dataclasses import dataclass
+from types import ModuleType
+from typing import Callable, Protocol
 
 
-class Fetcher:
+class IdentityProtocol(Protocol):
+    @staticmethod
+    def recall(destination_bytes: bytes, from_identity_hash: bool = False) -> "IdentityProtocol | None":
+        ...
+
+
+class RequestReceiptProtocol(Protocol):
+    READY: int
+    FAILED: int
+    SENT: int
+    DELIVERED: int
+    RECEIVING: int
+    response: bytes | None
+
+    def get_status(self) -> int:
+        ...
+
+
+class LinkProtocol(Protocol):
+    ACTIVE: int
+    CLOSED: int
+    status: int
+
+    def request(
+        self,
+        path: str,
+        data: bytes | None = None,
+        response_callback: Callable[[RequestReceiptProtocol], None] | None = None,
+        failed_callback: Callable[[RequestReceiptProtocol], None] | None = None,
+        progress_callback: Callable[[RequestReceiptProtocol], None] | None = None,
+        timeout: float | None = None,
+    ) -> RequestReceiptProtocol | bool:
+        ...
+
+    def teardown(self) -> None:
+        ...
+
+
+class DestinationProtocol(Protocol):
+    OUT: int
+    SINGLE: int
+
+    def __init__(
+        self,
+        identity: IdentityProtocol | None,
+        direction: int,
+        dest_type: int,
+        app_name: str,
+        *aspects: str,
+    ) -> None:
+        ...
+
+
+class ReticulumProtocol(Protocol):
+    def __init__(self, config_dir: str | None) -> None:
+        ...
+
+
+class RNSModule(Protocol):
+    Reticulum: type[ReticulumProtocol]
+    Destination: type[DestinationProtocol]
+    Link: type[LinkProtocol]
+    Identity: type[IdentityProtocol]
+    RequestReceipt: type[RequestReceiptProtocol]
+
+
+class Fetcher(Protocol):
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
         """Fetch a remote resource as raw bytes.
 
@@ -31,7 +99,7 @@ class Fetcher:
         Thread Safety:
             Implementations should document whether concurrent calls are safe.
         """
-        raise NotImplementedError
+        ...
 
 
 @dataclass
@@ -73,7 +141,7 @@ class ReticulumFetcher(Fetcher):
             Reticulum initialization is protected by a class-level lock; it is
             safe to construct multiple instances.
         """
-        self._rns = self._load_rns()
+        self._rns: RNSModule = self._load_rns()
         self._ensure_reticulum(config_dir)
         self.config_dir = config_dir
 
@@ -115,11 +183,11 @@ class ReticulumFetcher(Fetcher):
             link.teardown()
 
     _reticulum_lock = threading.Lock()
-    _reticulum_instance = None
+    _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
 
-    def _load_rns(self):
+    def _load_rns(self) -> RNSModule:
         """Load the Reticulum module, supporting multiple package layouts."""
         rns_spec = importlib.util.find_spec("RNS")
         reticulum_spec = importlib.util.find_spec("reticulum")
@@ -143,7 +211,7 @@ class ReticulumFetcher(Fetcher):
         self._validate_rns_module(reticulum_module)
         return reticulum_module
 
-    def _validate_rns_module(self, module) -> None:
+    def _validate_rns_module(self, module: ModuleType | RNSModule) -> None:
         """Ensure the Reticulum module exposes required symbols."""
         missing = [
             name
@@ -164,7 +232,7 @@ class ReticulumFetcher(Fetcher):
             if cls._reticulum_instance is None:
                 cls._reticulum_instance = self._rns.Reticulum(config_dir)
 
-    def _resolve_identity(self, destination_hash: str):
+    def _resolve_identity(self, destination_hash: str) -> IdentityProtocol:
         """Resolve a destination hash into a Reticulum Identity.
 
         Error Conditions:
@@ -182,7 +250,7 @@ class ReticulumFetcher(Fetcher):
             raise RuntimeError(f"Reticulum identity not found for {destination_hash}")
         return identity
 
-    def _await_link(self, link, resource_path: str) -> None:
+    def _await_link(self, link: LinkProtocol, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
 
         Error Conditions:
@@ -198,7 +266,7 @@ class ReticulumFetcher(Fetcher):
             time.sleep(0.1)
         raise TimeoutError(f"Timed out establishing Reticulum link for {resource_path}")
 
-    def _await_request(self, receipt, resource_path: str) -> bytes:
+    def _await_request(self, receipt: RequestReceiptProtocol, resource_path: str) -> bytes:
         """Wait for a Reticulum request receipt to complete.
 
         Error Conditions:
