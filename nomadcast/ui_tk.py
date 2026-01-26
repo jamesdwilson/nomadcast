@@ -43,7 +43,9 @@ class TkUiLauncher:
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
 
+        root.withdraw()
         maybe_prompt_install_app(root)
+        root.deiconify()
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
