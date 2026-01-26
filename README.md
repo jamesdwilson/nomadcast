@@ -295,6 +295,14 @@ On first run, NomadCast registers the protocol handler in a platform-native way:
 
 This means any publisher-facing page can rely on the scheme opening NomadCast after the UI has been launched once.
 
+### Optional app install prompt (UI)
+
+The UI also offers to install NomadCast into your system’s Applications location on first launch. This is optional and creates lightweight launchers only (no system-wide installer required):
+
+- **macOS:** installs `NomadCast.app` into `/Applications` (or `~/Applications` if the system folder is not writable).
+- **Windows:** writes a per-user launcher into `%LOCALAPPDATA%\Programs\NomadCast`.
+- **Linux:** creates a `nomadcast` launcher under `~/.local/bin` plus a `nomadcast.desktop` entry in `~/.local/share/applications`.
+
 ## Installation notes (developer-oriented)
 
 NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
