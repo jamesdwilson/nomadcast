@@ -93,21 +93,25 @@ class TkUiLauncher:
             return handler
 
         add_button = ttk.Button(button_row, text="Add subscription", command=handle_add)
+        add_button.configure(default="active")
         add_button.grid(row=0, column=0, sticky="w")
 
         daemon_button = ttk.Button(
             button_row, text="Manage daemon", command=handle_not_implemented(service.manage_daemon)
         )
+        daemon_button.state(["disabled"])
         daemon_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         subscriptions_button = ttk.Button(
             button_row, text="Edit subscriptions", command=handle_not_implemented(service.edit_subscriptions)
         )
+        subscriptions_button.state(["disabled"])
         subscriptions_button.grid(row=0, column=2, sticky="w", padx=(12, 0))
 
         cache_button = ttk.Button(
             button_row, text="View cache", command=handle_not_implemented(service.view_cache_status)
         )
+        cache_button.state(["disabled"])
         cache_button.grid(row=0, column=3, sticky="w", padx=(12, 0))
 
         future_row = ttk.Frame(frame)
@@ -116,12 +120,21 @@ class TkUiLauncher:
         tray_button = ttk.Button(
             future_row, text="System tray", command=handle_not_implemented(service.system_tray_integration)
         )
+        tray_button.state(["disabled"])
         tray_button.grid(row=0, column=0, sticky="w")
 
         health_button = ttk.Button(
             future_row, text="Health endpoint", command=handle_not_implemented(service.health_endpoint)
         )
+        health_button.state(["disabled"])
         health_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         locator_input.focus()
+        root.bind("<Return>", lambda event: add_button.invoke())
+        coming_soon = ttk.Label(
+            frame,
+            text="More features are under development—thanks for trying NomadCast!",
+            foreground="#8ea3b7",
+        )
+        coming_soon.grid(row=6, column=0, sticky="w", pady=(16, 0))
         root.mainloop()
