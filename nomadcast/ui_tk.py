@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from nomadcast.app_install import maybe_prompt_install_app
 from nomadcast.ui import SubscriptionService, UiStatus
 
 
@@ -32,6 +33,7 @@ class TkUiLauncher:
         service = SubscriptionService()
 
         root = tk.Tk()
+        root.tk.call("tk", "appname", "NomadCast")
         root.title(self._config.title)
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
@@ -40,6 +42,8 @@ class TkUiLauncher:
             icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
+
+        maybe_prompt_install_app(root)
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
