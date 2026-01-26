@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,20 @@ def _record_prompt_stamp() -> None:
         APP_INSTALL_STAMP.write_text("prompted\n", encoding="utf-8")
     except OSError:
         pass
+
+
+def _source_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _shell_env_export() -> str:
+    root = shlex.quote(str(_source_root()))
+    return f'export PYTHONPATH="{root}:$PYTHONPATH"'
+
+
+def _windows_env_set() -> str:
+    root = str(_source_root())
+    return f'set "PYTHONPATH={root};%PYTHONPATH%"'
 
 
 def _running_from_app_bundle() -> bool:
@@ -167,6 +182,7 @@ def _install_app_bundle(applications_dir: Path) -> Path:
         textwrap.dedent(
             f"""\
             #!/bin/bash
+            {_shell_env_export()}
             exec "{sys.executable}" -m nomadcast
             """
         ),
@@ -219,6 +235,7 @@ def _install_windows_app(target: InstallTarget) -> Path:
         textwrap.dedent(
             f"""\
             @echo off
+            {_windows_env_set()}
             "{sys.executable}" -m nomadcast %*
             """
         ),
@@ -238,6 +255,7 @@ def _install_linux_app(target: InstallTarget) -> Path:
         textwrap.dedent(
             f"""\
             #!/bin/sh
+            {_shell_env_export()}
             exec "{sys.executable}" -m nomadcast "$@"
             """
         ),
