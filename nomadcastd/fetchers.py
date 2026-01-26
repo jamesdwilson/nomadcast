@@ -210,7 +210,7 @@ class ReticulumFetcher(Fetcher):
             Link objects are per-call; this method is safe for concurrent use.
         """
         normalized_path = self._normalize_resource_path(resource_path)
-        self.logger.debug(
+        self.logger.info(
             "Reticulum fetch start destination=%s resource=%s normalized_resource=%s config_dir=%s app=%s aspects=%s",
             destination_hash,
             resource_path,
@@ -219,7 +219,18 @@ class ReticulumFetcher(Fetcher):
             self.destination_app,
             self.destination_aspects,
         )
+        self.logger.info(
+            "Reticulum fetch context thread=%s rns_module=%s rns_file=%s",
+            threading.current_thread().name,
+            getattr(self._rns, "__name__", type(self._rns).__name__),
+            getattr(self._rns, "__file__", "unknown"),
+        )
         destination_identity = self._resolve_identity(destination_hash)
+        self.logger.info(
+            "Reticulum identity resolved destination=%s identity=%r",
+            destination_hash,
+            destination_identity,
+        )
         destination = self._rns.Destination(
             destination_identity,
             self._rns.Destination.OUT,
@@ -227,22 +238,40 @@ class ReticulumFetcher(Fetcher):
             self.destination_app,
             *self.destination_aspects,
         )
+        self.logger.info(
+            "Reticulum destination constructed destination=%s type=%s obj=%r",
+            destination_hash,
+            type(destination).__name__,
+            destination,
+        )
         computed_hash = getattr(destination, "hash", None)
         if computed_hash is not None:
-            self.logger.debug(
+            self.logger.info(
                 "Reticulum destination hash computed=%s expected=%s",
                 computed_hash.hex() if isinstance(computed_hash, (bytes, bytearray)) else computed_hash,
                 destination_hash,
             )
         link = self._rns.Link(destination)
+        self.logger.info("Reticulum link created resource=%s link=%r", normalized_path, link)
         try:
             self._await_link(link, normalized_path)
+            self.logger.info(
+                "Reticulum request send resource=%s timeout=%s",
+                normalized_path,
+                self._request_timeout_seconds,
+            )
             receipt = link.request(normalized_path, timeout=self._request_timeout_seconds)
+            self.logger.info(
+                "Reticulum request receipt received resource=%s receipt=%r type=%s",
+                normalized_path,
+                receipt,
+                type(receipt).__name__,
+            )
             if not receipt:
                 self.logger.error("Reticulum request rejected for %s", normalized_path)
                 raise RuntimeError(f"Reticulum request for {normalized_path} was rejected")
             payload = self._await_request(receipt, normalized_path)
-            self.logger.debug(
+            self.logger.info(
                 "Reticulum fetch complete destination=%s resource=%s bytes=%d",
                 destination_hash,
                 normalized_path,
@@ -251,6 +280,7 @@ class ReticulumFetcher(Fetcher):
             return payload
         finally:
             link.teardown()
+            self.logger.info("Reticulum link teardown complete resource=%s", normalized_path)
 
     _reticulum_lock = threading.Lock()
     _reticulum_instance: ReticulumProtocol | None = None
@@ -260,9 +290,14 @@ class ReticulumFetcher(Fetcher):
 
     def _load_rns(self) -> RNSModule:
         """Load the Reticulum module, supporting multiple package layouts."""
-        self.logger.debug("Loading Reticulum module")
+        self.logger.info("Loading Reticulum module")
         rns_spec = importlib.util.find_spec("RNS")
         reticulum_spec = importlib.util.find_spec("reticulum")
+        self.logger.info(
+            "Reticulum module specs RNS=%s reticulum=%s",
+            rns_spec,
+            reticulum_spec,
+        )
         if rns_spec is None and reticulum_spec is None:
             self.logger.error("Reticulum module not found (RNS/reticulum)")
             raise RuntimeError(
@@ -272,18 +307,18 @@ class ReticulumFetcher(Fetcher):
         if rns_spec is not None:
             module = importlib.import_module("RNS")
             self._validate_rns_module(module)
-            self.logger.debug("Loaded Reticulum module from RNS")
+            self.logger.info("Loaded Reticulum module from RNS")
             return module
         reticulum_module = importlib.import_module("reticulum")
         if hasattr(reticulum_module, "RNS"):
             module = reticulum_module.RNS
             self._validate_rns_module(module)
-            self.logger.debug("Loaded Reticulum module from reticulum.RNS attribute")
+            self.logger.info("Loaded Reticulum module from reticulum.RNS attribute")
             return module
         if self._safe_find_spec("reticulum.RNS") is not None:
             module = importlib.import_module("reticulum.RNS")
             self._validate_rns_module(module)
-            self.logger.debug("Loaded Reticulum module from reticulum.RNS")
+            self.logger.info("Loaded Reticulum module from reticulum.RNS")
             return module
         try:
             self._validate_rns_module(reticulum_module)
@@ -300,7 +335,7 @@ class ReticulumFetcher(Fetcher):
                 "This is likely a different package. Install the Reticulum Network Stack "
                 "with `pip install rns` (module name 'RNS') and retry."
             ) from exc
-        self.logger.debug("Loaded Reticulum module from reticulum root")
+        self.logger.info("Loaded Reticulum module from reticulum root")
         return reticulum_module
 
     def _validate_rns_module(self, module: ModuleType | RNSModule) -> None:
@@ -355,10 +390,11 @@ class ReticulumFetcher(Fetcher):
         cls = type(self)
         with cls._reticulum_lock:
             if cls._reticulum_instance is None:
-                self.logger.debug("Initializing Reticulum with config_dir=%s", config_dir)
+                self.logger.info("Initializing Reticulum with config_dir=%s", config_dir)
                 cls._reticulum_instance = self._rns.Reticulum(config_dir)
+                self.logger.info("Reticulum initialized instance=%r", cls._reticulum_instance)
             else:
-                self.logger.debug("Reusing Reticulum singleton")
+                self.logger.info("Reusing Reticulum singleton instance=%r", cls._reticulum_instance)
 
     def _resolve_identity(self, destination_hash: str) -> IdentityType:
         """Resolve a destination hash into a Reticulum Identity.
@@ -372,18 +408,18 @@ class ReticulumFetcher(Fetcher):
         except ValueError as exc:
             self.logger.error("Destination hash is not valid hex: %s", destination_hash)
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
-        self.logger.debug(
+        self.logger.info(
             "Resolving Reticulum identity destination=%s bytes=%d",
             destination_hash,
             len(destination_bytes),
         )
         identity = self._rns.Identity.recall(destination_bytes, from_identity_hash=True)
         if identity is not None:
-            self.logger.debug("Reticulum identity resolved from identity hash for %s", destination_hash)
+            self.logger.info("Reticulum identity resolved from identity hash for %s", destination_hash)
         if identity is None:
             identity = self._rns.Identity.recall(destination_bytes)
             if identity is not None:
-                self.logger.debug("Reticulum identity resolved from destination hash for %s", destination_hash)
+                self.logger.info("Reticulum identity resolved from destination hash for %s", destination_hash)
         if identity is None:
             self.logger.error("Reticulum identity not found for %s", destination_hash)
             raise RuntimeError(f"Reticulum identity not found for {destination_hash}")
@@ -397,16 +433,33 @@ class ReticulumFetcher(Fetcher):
             link is not active before _link_timeout_seconds.
         """
         deadline = time.monotonic() + self._link_timeout_seconds
+        self.logger.info(
+            "Awaiting Reticulum link resource=%s timeout=%s deadline=%s initial_status=%s",
+            resource_path,
+            self._link_timeout_seconds,
+            deadline,
+            link.status,
+        )
         last_status = None
+        attempts = 0
         while time.monotonic() < deadline:
+            attempts += 1
+            now = time.monotonic()
+            self.logger.info(
+                "Reticulum link poll resource=%s attempt=%d elapsed=%.3f status=%s",
+                resource_path,
+                attempts,
+                now - (deadline - self._link_timeout_seconds),
+                link.status,
+            )
             if link.status == self._rns.Link.ACTIVE:
-                self.logger.debug("Reticulum link active for %s", resource_path)
+                self.logger.info("Reticulum link active for %s", resource_path)
                 return
             if link.status == self._rns.Link.CLOSED:
                 self.logger.error("Reticulum link closed while requesting %s", resource_path)
                 raise RuntimeError(f"Reticulum link closed while requesting {resource_path}")
             if link.status != last_status:
-                self.logger.debug(
+                self.logger.info(
                     "Reticulum link status update for %s: %s",
                     resource_path,
                     link.status,
@@ -424,12 +477,35 @@ class ReticulumFetcher(Fetcher):
             if the response is not ready before _request_timeout_seconds.
         """
         deadline = time.monotonic() + self._request_timeout_seconds
+        self.logger.info(
+            "Awaiting Reticulum response resource=%s timeout=%s deadline=%s receipt=%r",
+            resource_path,
+            self._request_timeout_seconds,
+            deadline,
+            receipt,
+        )
+        attempts = 0
         while time.monotonic() < deadline:
+            attempts += 1
             status = receipt.get_status()
+            now = time.monotonic()
+            self.logger.info(
+                "Reticulum receipt poll resource=%s attempt=%d elapsed=%.3f status=%s response_len=%s",
+                resource_path,
+                attempts,
+                now - (deadline - self._request_timeout_seconds),
+                status,
+                None if receipt.response is None else len(receipt.response),
+            )
             if status == self._rns.RequestReceipt.READY:
                 if receipt.response is None:
                     self.logger.error("Reticulum response missing for %s", resource_path)
                     raise RuntimeError(f"Reticulum response missing for {resource_path}")
+                self.logger.info(
+                    "Reticulum receipt ready resource=%s bytes=%d",
+                    resource_path,
+                    len(receipt.response),
+                )
                 return bytes(receipt.response)
             if status == self._rns.RequestReceipt.FAILED:
                 self.logger.error("Reticulum request failed for %s", resource_path)
@@ -446,9 +522,11 @@ class ReticulumFetcher(Fetcher):
         with external clients.
         """
         if not resource_path:
+            self.logger.info("Normalize resource path: empty input")
             return resource_path
         if resource_path.startswith("/"):
+            self.logger.info("Normalize resource path: already normalized %s", resource_path)
             return resource_path
         normalized = f"/{resource_path}"
-        self.logger.debug("Normalized resource path %s -> %s", resource_path, normalized)
+        self.logger.info("Normalized resource path %s -> %s", resource_path, normalized)
         return normalized
