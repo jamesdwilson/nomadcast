@@ -3,7 +3,7 @@ from __future__ import annotations
 """Parsing helpers tied to README's NomadCast locator format.
 
 The README specifies:
-- Subscription URI: nomadcast:<DEST_HASH>:<SHOW_NAME>/rss
+- Subscription URI: nomadcast:<DEST_HASH>:<SHOW_NAME>
 - Media URI: nomadcast:<DEST_HASH>:<SHOW_NAME>/media/<FILENAME>
 - HTTP show_path: URL-encoded DEST_HASH:SHOW_NAME as one segment
 """
@@ -14,7 +14,6 @@ from urllib.parse import quote, unquote
 
 NOMADCAST_PREFIX = "nomadcast:"
 NOMADCAST_URL_PREFIX = "nomadcast://"
-RSS_SUFFIX = "/rss"
 MEDIA_PREFIX = "/media/"
 MIN_DEST_HASH_LEN = 32
 DEST_HASH_RE = re.compile(r"^[0-9a-fA-F]+$")
@@ -42,11 +41,13 @@ def _strip_nomadcast_prefix(value: str) -> str:
 
 def parse_subscription_uri(uri: str) -> Subscription:
     """Parse the README-defined subscription URI format."""
-    if not uri.endswith(RSS_SUFFIX):
-        raise ValueError("Subscription URI must end with /rss")
-    body = _strip_nomadcast_prefix(uri[:-len(RSS_SUFFIX)])
+    body = _strip_nomadcast_prefix(uri)
+    if body.endswith("/rss"):
+        body = body[: -len("/rss")]
     if ":" not in body:
         raise ValueError("Subscription URI must include destination hash and show name")
+    if MEDIA_PREFIX in body:
+        raise ValueError("Media URLs are not valid subscription locators")
     destination_hash, show_name = body.split(":", 1)
     if len(destination_hash) < MIN_DEST_HASH_LEN or not DEST_HASH_RE.match(destination_hash):
         raise ValueError("Destination hash must be hex and at least 32 characters")
@@ -59,8 +60,8 @@ def normalize_subscription_input(raw_input: str) -> str:
     """Normalize a user-provided locator into a full subscription URI.
 
     The README allows users to paste either:
-    - nomadcast:<DEST_HASH>:<SHOW_NAME>/rss
-    - nomadcast://<DEST_HASH>:<SHOW_NAME>/rss
+    - nomadcast:<DEST_HASH>:<SHOW_NAME>
+    - nomadcast://<DEST_HASH>:<SHOW_NAME>
     - <DEST_HASH>:<SHOW_NAME>
     """
     trimmed = raw_input.strip()
@@ -71,16 +72,16 @@ def normalize_subscription_input(raw_input: str) -> str:
         trimmed = f"{NOMADCAST_PREFIX}{trimmed[len(NOMADCAST_URL_PREFIX):]}"
 
     if trimmed.startswith(NOMADCAST_PREFIX):
-        if trimmed.endswith(RSS_SUFFIX):
-            return trimmed
+        if trimmed.endswith("/rss"):
+            return trimmed[: -len("/rss")]
         if MEDIA_PREFIX in trimmed:
             raise ValueError("Media URLs are not valid subscription locators")
-        return f"{trimmed.rstrip('/')}{RSS_SUFFIX}"
+        return trimmed.rstrip("/")
 
     if ":" not in trimmed:
         raise ValueError("Locator must include destination hash and show name")
 
-    return f"{NOMADCAST_PREFIX}{trimmed}{RSS_SUFFIX}"
+    return f"{NOMADCAST_PREFIX}{trimmed}"
 
 
 def encode_show_path(destination_hash: str, show_name: str) -> str:

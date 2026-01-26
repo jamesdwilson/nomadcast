@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>Example NomadCast Podcast</title>
-    <link>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/rss</link>
+    <link>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast</link>
     <description>Example RSS feed for a Reticulum-hosted podcast served through NomadCast, with episode files hosted under a Nomad Network /file/ path.</description>
     <language>en-us</language>
     <itunes:author>NomadCast Demo Crew</itunes:author>

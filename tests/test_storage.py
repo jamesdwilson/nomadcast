@@ -24,7 +24,7 @@ class StorageStateTests(unittest.TestCase):
     def test_load_save_round_trip_preserves_episode_order(self) -> None:
         """Round-trip state should preserve cached episode ordering."""
         state = ShowState(
-            subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show/rss",
+            subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show",
             show_name="Show",
             last_refresh=123.0,
             cached_episodes=[
@@ -46,7 +46,7 @@ class StorageStateTests(unittest.TestCase):
 
     def test_save_show_state_writes_atomically(self) -> None:
         """State writes should replace the final file without leaving tmp artifacts."""
-        state = ShowState(subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show/rss", show_name="Show")
+        state = ShowState(subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show", show_name="Show")
         save_show_state(self.state_path, state)
 
         tmp_path = self.state_path.with_suffix(self.state_path.suffix + ".tmp")
@@ -69,10 +69,10 @@ class StorageStateTests(unittest.TestCase):
         """Missing state.json should yield defaults seeded from inputs."""
         state = load_show_state(
             self.state_path,
-            subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show/rss",
+            subscription_uri="nomadcast:abc123abc123abc123abc123abc123ab:Show",
             show_name="Show",
         )
-        self.assertEqual(state.subscription_uri, "nomadcast:abc123abc123abc123abc123abc123ab:Show/rss")
+        self.assertEqual(state.subscription_uri, "nomadcast:abc123abc123abc123abc123abc123ab:Show")
         self.assertEqual(state.show_name, "Show")
         self.assertEqual(state.cached_episodes, [])
 

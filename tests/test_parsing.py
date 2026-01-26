@@ -11,13 +11,13 @@ from nomadcastd.parsing import (
 class ParsingTests(unittest.TestCase):
     """Validate README subscription and show_path parsing rules."""
     def test_parse_subscription_uri(self) -> None:
-        uri = "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+        uri = "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
         subscription = parse_subscription_uri(uri)
         self.assertEqual(subscription.destination_hash, "a7c3e9b14f2d6a80715c9e3b1a4d8f20")
         self.assertEqual(subscription.show_name, "BestShow")
 
     def test_parse_subscription_uri_with_double_slash(self) -> None:
-        uri = "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+        uri = "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
         subscription = parse_subscription_uri(uri)
         self.assertEqual(subscription.destination_hash, "a7c3e9b14f2d6a80715c9e3b1a4d8f20")
         self.assertEqual(subscription.show_name, "BestShow")
@@ -33,15 +33,15 @@ class ParsingTests(unittest.TestCase):
     def test_normalize_subscription_input(self) -> None:
         self.assertEqual(
             normalize_subscription_input("a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"),
-            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss",
+            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow",
         )
         self.assertEqual(
             normalize_subscription_input("nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"),
-            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss",
+            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow",
         )
         self.assertEqual(
             normalize_subscription_input("nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"),
-            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss",
+            "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow",
         )
 
 

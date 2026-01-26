@@ -83,12 +83,12 @@ In your NomadNet page (or wherever you share the show), publish a normal-looking
 Example:
 
 ```micron
-[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld)
 ```
 
 If you want a fallback for users who cannot click the link, include the raw locator on the next line:
 
-- `nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss`
+- `nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld`
 
 Notes:
 - `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
@@ -277,7 +277,7 @@ Expectation:
 
 Publisher-facing link format (what you put on a NomadNet page):
 
-- [Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld/rss)
+- [Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld)
 
 Both `nomadcast://` and the shorter `nomadcast:` form are accepted; use the double-slash form when you want a fully-qualified URL scheme in browsers.
 
@@ -420,7 +420,7 @@ python -m nomadcast
 To add a subscription from the command line (simulating a protocol handler click):
 
 ```bash
-python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 
 To manage subscriptions directly with the daemon (handy for scripts or headless nodes):
@@ -429,7 +429,7 @@ Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscr
 
 ```bash
 python -m nomadcastd feeds ls
-python -m nomadcastd feeds add "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/rss"
+python -m nomadcastd feeds add "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 python -m nomadcastd feeds rm "a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 
