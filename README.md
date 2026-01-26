@@ -13,7 +13,7 @@
   <img alt="Data collection" src="https://img.shields.io/badge/data%20collection-none-00C853" />
   <img alt="Usage data" src="https://img.shields.io/badge/usage%20data-none-00C853" />
   <img alt="System identifiers" src="https://img.shields.io/badge/system%20identifiers-none-00C853" />
-  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-00C853" />
+  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-reticulum-0B3D91" />
 </p>
 
 ---
@@ -299,21 +299,35 @@ This means any publisher-facing page can rely on the scheme opening NomadCast af
 
 NomadCast is expected to track the Reticulum ecosystem’s Python-first gravity.
 
-- Python daemon uses RNS.
+- Python daemon (`nomadcastd`) uses the Reticulum `RNS` module.
 - Minimal UI is Tkinter.
 - NomadNet is only required for publishers hosting files; listeners running the daemon do not need it.
 
+### Dependencies
+
+`nomadcastd` requires the Reticulum Python module (`RNS`) in the same environment you run the daemon, even if you already have other Reticulum-based apps (NomadNet, MeshChat, etc.) running elsewhere. Install it with pip:
+
+```bash
+pip install reticulum
+```
+
+Or follow the canonical Reticulum install instructions:
+https://markqvist.github.io/Reticulum/manual/
+
+If you want a requirements file, use `requirements-daemon.txt`, which pins the daemon-only dependency.
+
 ### Developer quickstart
 
-NomadCast has no third-party runtime dependencies right now. The easiest path is: clone the repo and run the `python -m` commands below—no install step required.
+NomadCast has no third-party runtime dependencies for the UI, but the daemon needs Reticulum (`RNS`). The easiest path is: clone the repo, create a venv, and install the daemon requirement.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements-daemon.txt
 cp .env.example .env
 ```
 
-If you like isolated environments, you can still use a venv; `requirements.txt` is intentionally empty because everything runs on the Python standard library.
+If you like isolated environments, you can still use a venv; `requirements.txt` is intentionally empty because the UI runs on the Python standard library.
 We can add packaging metadata later to support a one-liner `pipx install` experience, but for now the simplest option is just running from the repo.
 If you want to override the config path, export `NOMADCAST_CONFIG` (the `.env` file is provided as a convenience for tools like direnv).
 
@@ -354,7 +368,7 @@ config_dir =
 Reticulum/NomadNet considerations:
 
 - `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
-- `reticulum.config_dir` lets you point NomadCast at a specific Reticulum/NomadNet config folder if you run multiple nodes.
+- `reticulum.config_dir` lets you point NomadCast at a specific Reticulum/NomadNet config folder if you run multiple nodes, or align with an existing NomadNet config (for example `~/.nomadnetwork`).
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
