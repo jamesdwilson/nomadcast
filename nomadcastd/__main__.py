@@ -13,6 +13,7 @@ from nomadcastd.config import load_config, load_subscriptions, add_subscription_
 from nomadcastd.parsing import encode_show_path, normalize_subscription_input, parse_subscription_uri
 from nomadcastd.daemon import NomadCastDaemon
 from nomadcastd.server import NomadCastHTTPServer, NomadCastRequestHandler
+from nomadcastd.reticulum_import import maybe_prompt_nomadnet_interface_import
 
 
 def _local_feed_base_url(config) -> str:
@@ -74,8 +75,33 @@ def _run_daemon(config_path: Path | None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
+    if maybe_prompt_nomadnet_interface_import(config, logger):
+        config = load_config(config_path=config_path)
     daemon = NomadCastDaemon(config=config)
     daemon.start()
+
+    logger.info(
+        "NomadCast config loaded from %s",
+        config.config_path,
+    )
+    logger.info(
+        "Feed server config: listen_host=%s listen_port=%s public_host=%s",
+        config.listen_host,
+        config.listen_port,
+        config.public_host or "(none)",
+    )
+    logger.info(
+        "Reticulum interface config source: config_dir=%s",
+        config.reticulum_config_dir or "(default Reticulum config, e.g. ~/.reticulum)",
+    )
+    logger.info(
+        "Reticulum destination app/aspects: app=%s aspects=%s",
+        config.reticulum_destination_app,
+        ",".join(config.reticulum_destination_aspects),
+    )
+    logger.info(
+        "To use a different config file (including other interface settings), run: nomadcastd --config PATH"
+    )
 
     if config.reticulum_config_dir is None:
         logger.info("Reticulum config_dir not set; using Reticulum defaults (e.g. ~/.reticulum).")
