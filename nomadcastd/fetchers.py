@@ -161,12 +161,19 @@ class ReticulumFetcher(Fetcher):
     requesting resources.
     """
 
-    def __init__(self, config_dir: str | None = None) -> None:
+    def __init__(
+        self,
+        config_dir: str | None = None,
+        destination_app: str = "nomadnet",
+        destination_aspects: tuple[str, ...] = ("file",),
+    ) -> None:
         """Initialize the Reticulum client.
 
         Inputs:
             config_dir: Reticulum configuration directory path from the daemon
                 config (reticulum_config_dir).
+            destination_app: Reticulum destination app name for file hosting.
+            destination_aspects: Destination aspects appended to the app name.
 
         Error Conditions:
             Raises RuntimeError if Reticulum is not installed or is missing
@@ -180,6 +187,8 @@ class ReticulumFetcher(Fetcher):
         self._rns: RNSModule = self._load_rns()
         self._ensure_reticulum(config_dir)
         self.config_dir = config_dir
+        self.destination_app = destination_app
+        self.destination_aspects = destination_aspects
 
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
         """Fetch a resource via Reticulum and return its payload.
@@ -202,19 +211,29 @@ class ReticulumFetcher(Fetcher):
         """
         normalized_path = self._normalize_resource_path(resource_path)
         self.logger.debug(
-            "Reticulum fetch start destination=%s resource=%s normalized_resource=%s config_dir=%s",
+            "Reticulum fetch start destination=%s resource=%s normalized_resource=%s config_dir=%s app=%s aspects=%s",
             destination_hash,
             resource_path,
             normalized_path,
             self.config_dir,
+            self.destination_app,
+            self.destination_aspects,
         )
         destination_identity = self._resolve_identity(destination_hash)
         destination = self._rns.Destination(
             destination_identity,
             self._rns.Destination.OUT,
             self._rns.Destination.SINGLE,
-            "nomadcast",
+            self.destination_app,
+            *self.destination_aspects,
         )
+        computed_hash = getattr(destination, "hash", None)
+        if computed_hash is not None:
+            self.logger.debug(
+                "Reticulum destination hash computed=%s expected=%s",
+                computed_hash.hex() if isinstance(computed_hash, (bytes, bytearray)) else computed_hash,
+                destination_hash,
+            )
         link = self._rns.Link(destination)
         try:
             self._await_link(link, normalized_path)

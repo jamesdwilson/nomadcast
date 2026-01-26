@@ -92,7 +92,11 @@ class NomadCastDaemon:
             self.fetcher = fetcher
         else:
             try:
-                self.fetcher = ReticulumFetcher(self.config.reticulum_config_dir)
+                self.fetcher = ReticulumFetcher(
+                    config_dir=self.config.reticulum_config_dir,
+                    destination_app=self.config.reticulum_destination_app,
+                    destination_aspects=self.config.reticulum_destination_aspects,
+                )
             except RuntimeError as exc:
                 self.logger.warning(
                     "Reticulum unavailable (%s); falling back to MockFetcher.",

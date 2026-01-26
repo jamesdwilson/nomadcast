@@ -31,6 +31,8 @@ uri =
 
 [reticulum]
 config_dir =
+destination_app = nomadnet
+destination_aspects = file
 """
 
 
@@ -46,6 +48,8 @@ class NomadCastConfig:
     max_bytes_per_show: int
     public_host: str | None
     reticulum_config_dir: str | None
+    reticulum_destination_app: str
+    reticulum_destination_aspects: tuple[str, ...]
     config_path: Path
 
 
@@ -230,6 +234,21 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
     reticulum_config_dir = None
     if parser.has_section("reticulum"):
         reticulum_config_dir = parser.get("reticulum", "config_dir", fallback="").strip() or None
+        reticulum_destination_app = parser.get("reticulum", "destination_app", fallback="").strip()
+        reticulum_destination_aspects = parser.get("reticulum", "destination_aspects", fallback="").strip()
+    else:
+        reticulum_destination_app = ""
+        reticulum_destination_aspects = ""
+
+    if not reticulum_destination_app:
+        reticulum_destination_app = "nomadnet"
+    aspects = tuple(
+        aspect.strip()
+        for aspect in reticulum_destination_aspects.split(",")
+        if aspect.strip()
+    )
+    if not aspects:
+        aspects = ("file",)
 
     return NomadCastConfig(
         listen_host=listen_host,
@@ -242,6 +261,8 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
         max_bytes_per_show=max_bytes_per_show,
         public_host=public_host,
         reticulum_config_dir=reticulum_config_dir,
+        reticulum_destination_app=reticulum_destination_app,
+        reticulum_destination_aspects=aspects,
         config_path=config_path,
     )
 
