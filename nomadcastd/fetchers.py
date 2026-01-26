@@ -245,7 +245,8 @@ class ReticulumFetcher(Fetcher):
         if rns_spec is None and reticulum_spec is None:
             self.logger.error("Reticulum module not found (RNS/reticulum)")
             raise RuntimeError(
-                "Reticulum is not installed. Install the 'reticulum' package before starting nomadcastd."
+                "Reticulum Network Stack is not installed (no RNS or reticulum module found). "
+                "Install the RNS/Reticulum package and retry."
             )
         if rns_spec is not None:
             module = importlib.import_module("RNS")
@@ -263,7 +264,21 @@ class ReticulumFetcher(Fetcher):
             self._validate_rns_module(module)
             self.logger.debug("Loaded Reticulum module from reticulum.RNS")
             return module
-        self._validate_rns_module(reticulum_module)
+        try:
+            self._validate_rns_module(reticulum_module)
+        except RuntimeError as exc:
+            module_path = getattr(reticulum_module, "__file__", "unknown")
+            self.logger.error(
+                "reticulum package at %s is missing RNS symbols: %s",
+                module_path,
+                exc,
+            )
+            raise RuntimeError(
+                "Found a 'reticulum' package, but it does not expose the Reticulum "
+                "Network Stack symbols (Reticulum, Destination, Link, Identity, RequestReceipt). "
+                "This is likely a different package. Install the Reticulum Network Stack "
+                "package (module name 'RNS') and retry."
+            ) from exc
         self.logger.debug("Loaded Reticulum module from reticulum root")
         return reticulum_module
 
