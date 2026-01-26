@@ -14,6 +14,7 @@
   <img alt="Usage data" src="https://img.shields.io/badge/usage%20data-none-00C853" />
   <img alt="System identifiers" src="https://img.shields.io/badge/system%20identifiers-none-00C853" />
   <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-reticulum-0B3D91" />
+  <img alt="Coverage" src="https://img.shields.io/codecov/c/github/jamesdwilson/nomadcast?logo=codecov" />
 </p>
 
 ---
@@ -53,6 +54,7 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 - [Source code guide](#source-code-guide)
 - [Protocol handler (nomadcast:)](#protocol-handler-nomadcast)
 - [Installation notes (developer-oriented)](#installation-notes-developer-oriented)
+- [How to run tests & coverage](#how-to-run-tests--coverage)
 - [Roadmap (future capabilities)](#roadmap-future-capabilities)
 - [Related projects and references](#related-projects-and-references)
 
@@ -380,10 +382,26 @@ Reticulum/NomadNet considerations:
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
-### Run unit tests
+## How to run tests & coverage
+
+Install dev tooling (coverage) once:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run unit tests:
 
 ```bash
 python -m unittest
+```
+
+Run tests with coverage and view reports:
+
+```bash
+python -m coverage run -m unittest
+python -m coverage report
+python -m coverage html
 ```
 
 ### Start the daemon (nomadcastd)
