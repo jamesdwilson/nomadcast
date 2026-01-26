@@ -54,12 +54,8 @@ class TkUiLauncher:
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
 
-        should_hide_window = platform.system() != "Darwin"
-        if should_hide_window:
-            root.withdraw()
+        root.withdraw()
         maybe_prompt_install_app(root)
-        if should_hide_window:
-            root.deiconify()
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
@@ -163,6 +159,7 @@ class TkUiLauncher:
         position_x = max((screen_width - window_width) // 2, 0)
         position_y = max((screen_height - window_height) // 2, 0)
         root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        root.deiconify()
         root.attributes("-topmost", True)
         root.lift()
         root.focus_force()
