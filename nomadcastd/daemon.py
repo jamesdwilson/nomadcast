@@ -120,6 +120,7 @@ class NomadCastDaemon:
         self.logger.debug("Storage path ensured at %s", self.config.storage_path)
         self.reload_config()
         self.worker_thread.start()
+        self._queue_initial_refreshes()
 
     def stop(self) -> None:
         """Stop the daemon worker and wait briefly for exit.
@@ -197,7 +198,7 @@ class NomadCastDaemon:
         self.show_contexts = new_contexts
         self.logger.info("Loaded %d subscription(s)", len(subscriptions))
 
-    def enqueue_refresh(self, show_id: str) -> None:
+    def enqueue_refresh(self, show_id: str, *, force: bool = False) -> None:
         """Request an RSS refresh for a show.
 
         Queue Semantics:
@@ -222,25 +223,38 @@ class NomadCastDaemon:
             if context.refresh_pending:
                 self.logger.debug("Refresh already pending for %s", show_id)
                 return
-            if context.state.last_refresh and now - context.state.last_refresh < self.config.rss_poll_seconds:
-                self.logger.debug(
-                    "Refresh skipped for %s: last_refresh=%s rss_poll_seconds=%s",
-                    show_id,
-                    context.state.last_refresh,
-                    self.config.rss_poll_seconds,
-                )
-                return
-            if now < context.next_refresh_time:
-                self.logger.debug(
-                    "Refresh backoff active for %s: next_refresh_time=%s now=%s",
-                    show_id,
-                    context.next_refresh_time,
-                    now,
-                )
-                return
+            if not force:
+                if context.state.last_refresh and now - context.state.last_refresh < self.config.rss_poll_seconds:
+                    self.logger.debug(
+                        "Refresh skipped for %s: last_refresh=%s rss_poll_seconds=%s",
+                        show_id,
+                        context.state.last_refresh,
+                        self.config.rss_poll_seconds,
+                    )
+                    return
+                if now < context.next_refresh_time:
+                    self.logger.debug(
+                        "Refresh backoff active for %s: next_refresh_time=%s now=%s",
+                        show_id,
+                        context.next_refresh_time,
+                        now,
+                    )
+                    return
             context.refresh_pending = True
-        self.logger.debug("Enqueued refresh for %s", show_id)
+        if force:
+            self.logger.info("Enqueued startup refresh for %s", show_id)
+        else:
+            self.logger.debug("Enqueued refresh for %s", show_id)
         self.queue.put(("refresh", show_id, None))
+
+    def _queue_initial_refreshes(self) -> None:
+        """Queue immediate refreshes for all shows on startup."""
+        if not self.show_contexts:
+            self.logger.info("No subscriptions to refresh on startup.")
+            return
+        self.logger.info("Starting initial sync for %d subscription(s).", len(self.show_contexts))
+        for show_id in self.show_contexts:
+            self.enqueue_refresh(show_id, force=True)
 
     def enqueue_media_fetch(self, show_id: str, filename: str) -> None:
         """Request a media fetch for a show/filename.
@@ -380,6 +394,7 @@ class NomadCastDaemon:
         try:
             # README: fetch publisher RSS over Reticulum and store raw bytes.
             rss_path = f"file/{context.subscription.show_name}/feed.rss"
+            self.logger.info("Refreshing RSS for %s (%s)", show_id, rss_path)
             self.logger.debug("Fetching RSS for %s at %s", show_id, rss_path)
             rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, rss_path)
             self.logger.debug("Fetched RSS for %s (%d bytes)", show_id, len(rss_bytes))
