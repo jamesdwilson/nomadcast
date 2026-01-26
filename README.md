@@ -175,6 +175,7 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 - nomadcast (UI, v0)
   - A minimal Tkinter prompt that collects a show locator and writes it to the daemon config.
   - After adding a show, it opens the local subscription URL in the OS (so your default podcast handler can take over).
+  - The UI starts hidden and lives in the system tray/menu bar. Click the tray icon (or choose the default Show/Hide menu item) to toggle the window, and use the menu option to quit the UI without stopping the daemon.
 
 ### Data flow
 

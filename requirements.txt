@@ -1,1 +1,3 @@
-# NomadCast daemon and Tkinter UI are stdlib-only.
+# NomadCast daemon and Tkinter UI dependencies.
+pystray>=0.19
+pillow>=10.0
