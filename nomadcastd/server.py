@@ -77,12 +77,23 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
             return
         self.server.daemon.enqueue_refresh(show_id)
         cached = self.server.daemon.get_cached_rss(show_id)
+        logger = logging.getLogger("nomadcastd.feed")
         if cached is None:
+            retry_after = self.server.daemon.config.rss_poll_seconds
+            logger.info(
+                "RSS cache miss for %s; refresh queued; retry_after=%s",
+                show_id,
+                retry_after,
+            )
             self.send_response(HTTPStatus.SERVICE_UNAVAILABLE)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Retry-After", str(retry_after))
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Pragma", "no-cache")
             self.end_headers()
             self.wfile.write(b"RSS not yet cached. Refresh queued.\n")
             return
+        logger.info("RSS cache hit for %s; bytes=%s", show_id, len(cached))
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/rss+xml; charset=utf-8")
         self.send_header("Content-Length", str(len(cached)))

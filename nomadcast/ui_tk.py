@@ -112,8 +112,10 @@ class TkUiLauncher:
         from pathlib import Path
         import platform
         import os
+        import logging
 
         service = SubscriptionService()
+        logger = logging.getLogger(__name__)
 
         if platform.system() == "Darwin":
             os.environ.setdefault("CFBundleName", "NomadCast")
@@ -180,8 +182,10 @@ class TkUiLauncher:
             try:
                 status = service.add_subscription(locator)
             except ValueError as exc:
+                logger.warning("Invalid locator entered: %s", exc)
                 status = UiStatus(message=f"Invalid locator: {exc}", is_error=True)
             except OSError as exc:
+                logger.exception("Failed to update config: %s", exc)
                 status = UiStatus(message=f"Failed to update config: {exc}", is_error=True)
             set_status(status)
 
