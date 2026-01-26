@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,20 @@ from pathlib import Path
 SCHEME = "nomadcast"
 STAMP_PATH = Path.home() / ".nomadcast" / "protocol_handler_registered"
 LOGGER = logging.getLogger(__name__)
+
+
+def _source_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _shell_env_export() -> str:
+    root = shlex.quote(str(_source_root()))
+    return f'export PYTHONPATH="{root}:$PYTHONPATH"'
+
+
+def _windows_env_set() -> str:
+    root = str(_source_root())
+    return f'set "PYTHONPATH={root};%PYTHONPATH%"'
 
 
 def ensure_protocol_handler_registered() -> bool:
@@ -43,7 +58,7 @@ def register_protocol_handler() -> bool:
 def _register_windows() -> bool:
     import winreg
 
-    command = f'"{sys.executable}" -m nomadcast "%1"'
+    command = f'cmd /c {_windows_env_set()} && "{sys.executable}" -m nomadcast "%1"'
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, rf"Software\\Classes\\{SCHEME}") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "URL:NomadCast Protocol")
         winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
@@ -65,6 +80,7 @@ def _register_macos() -> bool:
         textwrap.dedent(
             f"""\
             #!/bin/bash
+            {_shell_env_export()}
             exec "{sys.executable}" -m nomadcast "$@"
             """
         ),
@@ -134,7 +150,7 @@ def _register_linux() -> bool:
             [Desktop Entry]
             Name=NomadCast
             Comment=NomadCast protocol handler
-            Exec="{sys.executable}" -m nomadcast %u
+            Exec=sh -c 'PYTHONPATH="{shlex.quote(str(_source_root()))}:$PYTHONPATH" exec "{sys.executable}" -m nomadcast %u'
             Terminal=false
             Type=Application
             NoDisplay=true
