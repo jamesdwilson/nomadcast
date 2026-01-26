@@ -157,8 +157,8 @@ class ReticulumFetcher(Fetcher):
     """Fetcher implementation backed by Reticulum (RNS).
 
     Uses the Reticulum configuration directory (config.reticulum_config_dir)
-    to initialize RNS and resolves destination hashes to Identities before
-    requesting resources.
+    to initialize RNS and resolves destination hashes before requesting
+    resources.
     """
 
     def __init__(
@@ -388,8 +388,8 @@ class ReticulumFetcher(Fetcher):
         """Resolve a destination hash into a Reticulum Destination.
 
         Error Conditions:
-            Raises ValueError for invalid hex and RuntimeError if neither a
-            destination nor an identity can be resolved.
+            Raises ValueError for invalid hex and RuntimeError if the
+            destination cannot be resolved.
         """
         try:
             destination_bytes = bytes.fromhex(destination_hash)
@@ -399,20 +399,8 @@ class ReticulumFetcher(Fetcher):
         destination = self._recall_destination(destination_hash, destination_bytes)
         if destination is not None:
             return destination
-        destination_identity = self._resolve_identity(destination_hash, destination_bytes)
-        self.logger.info(
-            "Reticulum identity resolved destination=%s identity=%r",
-            destination_hash,
-            destination_identity,
-        )
-        destination = self._rns.Destination(
-            destination_identity,
-            self._rns.Destination.OUT,
-            self._rns.Destination.SINGLE,
-            self.destination_app,
-            *self.destination_aspects,
-        )
-        return destination
+        self.logger.error("Reticulum destination not found for %s", destination_hash)
+        raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
 
     def _recall_destination(
         self,
@@ -440,30 +428,6 @@ class ReticulumFetcher(Fetcher):
                 )
                 return destination
         return None
-
-    def _resolve_identity(self, destination_hash: str, destination_bytes: bytes) -> IdentityType:
-        """Resolve a destination hash into a Reticulum Identity.
-
-        Error Conditions:
-            Raises ValueError for invalid hex and RuntimeError if the identity
-            cannot be recalled from Reticulum's cache.
-        """
-        self.logger.info(
-            "Resolving Reticulum identity destination=%s bytes=%d",
-            destination_hash,
-            len(destination_bytes),
-        )
-        identity = self._rns.Identity.recall(destination_bytes, from_identity_hash=True)
-        if identity is not None:
-            self.logger.info("Reticulum identity resolved from identity hash for %s", destination_hash)
-        if identity is None:
-            identity = self._rns.Identity.recall(destination_bytes)
-            if identity is not None:
-                self.logger.info("Reticulum identity resolved from destination hash for %s", destination_hash)
-        if identity is None:
-            self.logger.error("Reticulum identity not found for %s", destination_hash)
-            raise RuntimeError(f"Reticulum identity not found for {destination_hash}")
-        return identity
 
     def _await_link(self, link: LinkType, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
