@@ -200,10 +200,12 @@ class ReticulumFetcher(Fetcher):
         Thread Safety:
             Link objects are per-call; this method is safe for concurrent use.
         """
+        normalized_path = self._normalize_resource_path(resource_path)
         self.logger.debug(
-            "Reticulum fetch start destination=%s resource=%s config_dir=%s",
+            "Reticulum fetch start destination=%s resource=%s normalized_resource=%s config_dir=%s",
             destination_hash,
             resource_path,
+            normalized_path,
             self.config_dir,
         )
         destination_identity = self._resolve_identity(destination_hash)
@@ -215,16 +217,16 @@ class ReticulumFetcher(Fetcher):
         )
         link = self._rns.Link(destination)
         try:
-            self._await_link(link, resource_path)
-            receipt = link.request(resource_path, timeout=self._request_timeout_seconds)
+            self._await_link(link, normalized_path)
+            receipt = link.request(normalized_path, timeout=self._request_timeout_seconds)
             if not receipt:
-                self.logger.error("Reticulum request rejected for %s", resource_path)
-                raise RuntimeError(f"Reticulum request for {resource_path} was rejected")
-            payload = self._await_request(receipt, resource_path)
+                self.logger.error("Reticulum request rejected for %s", normalized_path)
+                raise RuntimeError(f"Reticulum request for {normalized_path} was rejected")
+            payload = self._await_request(receipt, normalized_path)
             self.logger.debug(
                 "Reticulum fetch complete destination=%s resource=%s bytes=%d",
                 destination_hash,
-                resource_path,
+                normalized_path,
                 len(payload),
             )
             return payload
@@ -351,9 +353,18 @@ class ReticulumFetcher(Fetcher):
         except ValueError as exc:
             self.logger.error("Destination hash is not valid hex: %s", destination_hash)
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
+        self.logger.debug(
+            "Resolving Reticulum identity destination=%s bytes=%d",
+            destination_hash,
+            len(destination_bytes),
+        )
         identity = self._rns.Identity.recall(destination_bytes, from_identity_hash=True)
+        if identity is not None:
+            self.logger.debug("Reticulum identity resolved from identity hash for %s", destination_hash)
         if identity is None:
             identity = self._rns.Identity.recall(destination_bytes)
+            if identity is not None:
+                self.logger.debug("Reticulum identity resolved from destination hash for %s", destination_hash)
         if identity is None:
             self.logger.error("Reticulum identity not found for %s", destination_hash)
             raise RuntimeError(f"Reticulum identity not found for {destination_hash}")
@@ -367,6 +378,7 @@ class ReticulumFetcher(Fetcher):
             link is not active before _link_timeout_seconds.
         """
         deadline = time.monotonic() + self._link_timeout_seconds
+        last_status = None
         while time.monotonic() < deadline:
             if link.status == self._rns.Link.ACTIVE:
                 self.logger.debug("Reticulum link active for %s", resource_path)
@@ -374,6 +386,13 @@ class ReticulumFetcher(Fetcher):
             if link.status == self._rns.Link.CLOSED:
                 self.logger.error("Reticulum link closed while requesting %s", resource_path)
                 raise RuntimeError(f"Reticulum link closed while requesting {resource_path}")
+            if link.status != last_status:
+                self.logger.debug(
+                    "Reticulum link status update for %s: %s",
+                    resource_path,
+                    link.status,
+                )
+                last_status = link.status
             time.sleep(0.1)
         self.logger.error("Reticulum link timed out for %s", resource_path)
         raise TimeoutError(f"Timed out establishing Reticulum link for {resource_path}")
@@ -399,3 +418,18 @@ class ReticulumFetcher(Fetcher):
             time.sleep(0.1)
         self.logger.error("Reticulum response timeout for %s", resource_path)
         raise TimeoutError(f"Timed out waiting for Reticulum response for {resource_path}")
+
+    def _normalize_resource_path(self, resource_path: str) -> str:
+        """Normalize a resource path for Reticulum requests.
+
+        MeshChat and NomadNet file links are typically addressed with a leading
+        slash (e.g. /file/<show>/feed.rss). Normalize to that format to align
+        with external clients.
+        """
+        if not resource_path:
+            return resource_path
+        if resource_path.startswith("/"):
+            return resource_path
+        normalized = f"/{resource_path}"
+        self.logger.debug("Normalized resource path %s -> %s", resource_path, normalized)
+        return normalized
