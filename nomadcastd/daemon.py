@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Daemon lifecycle and background refresh logic for NomadCast.
+
+This module coordinates configuration reloads, feed refreshes, and media
+downloads as described in the README. It owns the single worker thread and the
+queue used to serialize background work.
+"""
+
 import logging
 import queue
 import threading
@@ -31,6 +38,12 @@ from nomadcastd.storage import (
 
 @dataclass
 class ShowContext:
+    """Per-show state tracked by the daemon worker.
+
+    Attributes are mutated from the main thread and worker thread; access is
+    guarded by the instance lock. The context persists storage paths and
+    metadata used to rebuild client RSS feeds.
+    """
     subscription: Subscription
     show_dir: Path
     episodes_dir: Path
@@ -45,7 +58,30 @@ class ShowContext:
 
 
 class NomadCastDaemon:
+    """Manage NomadCast background work and cached storage.
+
+    The daemon owns a single worker thread and an in-process queue to serialize
+    refresh and media fetch jobs. Callers may enqueue work from multiple
+    threads; internal locking on ShowContext ensures per-show state remains
+    consistent.
+    """
     def __init__(self, config: NomadCastConfig | None = None, fetcher: Fetcher | None = None) -> None:
+        """Initialize the daemon with config and fetcher dependencies.
+
+        Args:
+            config: Optional configuration override. If omitted, the default
+                config file is loaded.
+            fetcher: Optional fetcher implementation. Defaults to
+                ReticulumFetcher pointing at the configured Reticulum config
+                directory.
+
+        Side Effects:
+            Loads configuration, constructs the worker thread, and allocates
+            the in-memory queue. Does not touch the filesystem until start().
+
+        Thread Safety:
+            Safe to call from the main thread before start() is invoked.
+        """
         # README: daemon bridges Reticulum-hosted feeds to local HTTP.
         self.logger = logging.getLogger("nomadcastd")
         self.config = config or load_config()
@@ -56,17 +92,51 @@ class NomadCastDaemon:
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
 
     def start(self) -> None:
+        """Start the daemon worker and ensure storage exists.
+
+        Side Effects:
+            Ensures the base storage path exists, reloads configuration and
+            subscriptions, and starts the background worker thread.
+
+        Thread Safety:
+            Should be called once from a single thread before servicing HTTP
+            requests.
+        """
         # Prepare storage layout described in README.
         self.config.storage_path.mkdir(parents=True, exist_ok=True)
         self.reload_config()
         self.worker_thread.start()
 
     def stop(self) -> None:
+        """Stop the daemon worker and wait briefly for exit.
+
+        Side Effects:
+            Signals the worker thread, enqueues a sentinel job, and joins the
+            thread with a short timeout.
+
+        Thread Safety:
+            Safe to call from the main thread; no guarantee of immediate
+            shutdown if background work is blocked.
+        """
         self.stop_event.set()
         self.queue.put(("stop", "", None))
         self.worker_thread.join(timeout=5)
 
     def reload_config(self) -> None:
+        """Reload config and subscriptions, rebuilding show contexts.
+
+        Inputs/Outputs:
+            Reads config and subscription files as defined by NomadCastConfig
+            and updates self.show_contexts with new ShowContext instances.
+
+        Side Effects:
+            Ensures per-show storage directories exist and loads cached
+            show state from disk. Invalid subscriptions are logged and skipped.
+
+        Thread Safety:
+            Should be called from the main thread or while the worker is idle;
+            per-context locks protect concurrent updates to ShowContext fields.
+        """
         # Reload config and subscriptions (README: POST /reload triggers this).
         self.config = load_config(self.config.config_path)
         subscription_uris = load_subscriptions(self.config.config_path)
@@ -109,6 +179,19 @@ class NomadCastDaemon:
         self.logger.info("Loaded %d subscription(s)", len(subscriptions))
 
     def enqueue_refresh(self, show_id: str) -> None:
+        """Request an RSS refresh for a show.
+
+        Queue Semantics:
+            Debounces duplicate refreshes and honors rss_poll_seconds as well
+            as the exponential backoff derived from retry_backoff_seconds. Only
+            one pending refresh per show is queued at a time.
+
+        Side Effects:
+            Enqueues a refresh job for the worker thread when eligible.
+
+        Thread Safety:
+            Safe to call concurrently; uses per-show lock to update flags.
+        """
         context = self.show_contexts.get(show_id)
         if not context:
             return
@@ -126,6 +209,17 @@ class NomadCastDaemon:
         self.queue.put(("refresh", show_id, None))
 
     def enqueue_media_fetch(self, show_id: str, filename: str) -> None:
+        """Request a media fetch for a show/filename.
+
+        Queue Semantics:
+            Tracks per-show pending filenames to avoid duplicate downloads.
+
+        Side Effects:
+            Enqueues a media job for the worker thread when eligible.
+
+        Thread Safety:
+            Safe to call concurrently; uses per-show lock to update flags.
+        """
         # Track per-show pending downloads so we don't queue duplicates.
         context = self.show_contexts.get(show_id)
         if not context:
@@ -137,6 +231,14 @@ class NomadCastDaemon:
         self.queue.put(("media", show_id, filename))
 
     def get_cached_rss(self, show_id: str) -> bytes | None:
+        """Return cached client RSS bytes for a show, if present.
+
+        Outputs:
+            The contents of client_rss.xml or None if no cached feed exists.
+
+        Thread Safety:
+            File reads are safe; no locks required.
+        """
         context = self.show_contexts.get(show_id)
         if not context:
             return None
@@ -146,6 +248,14 @@ class NomadCastDaemon:
         return None
 
     def get_media_path(self, show_id: str, filename: str) -> Path | None:
+        """Return the cached media file path when present.
+
+        Outputs:
+            A Path pointing at episodes/<filename> if it exists, otherwise None.
+
+        Thread Safety:
+            File existence checks are safe; no locks required.
+        """
         context = self.show_contexts.get(show_id)
         if not context:
             return None
@@ -155,6 +265,18 @@ class NomadCastDaemon:
         return None
 
     def show_id_from_path(self, show_path: str) -> str | None:
+        """Convert a URL path segment into the internal show_id.
+
+        Inputs:
+            show_path: The encoded show path as served by the HTTP API.
+
+        Outputs:
+            The "<destination_hash>:<show_name>" identifier, or None for
+            invalid input.
+
+        Error Conditions:
+            Returns None if decoding fails.
+        """
         try:
             destination_hash, show_name = decode_show_path(show_path)
         except ValueError:
@@ -162,6 +284,15 @@ class NomadCastDaemon:
         return f"{destination_hash}:{show_name}"
 
     def _worker_loop(self) -> None:
+        """Process queued jobs until stopped.
+
+        Queue Semantics:
+            Processes jobs in FIFO order. "stop" jobs terminate the loop; other
+            jobs are dispatched to refresh or media handlers.
+
+        Thread Safety:
+            Runs on the dedicated worker thread only.
+        """
         while not self.stop_event.is_set():
             try:
                 job_type, show_id, payload = self.queue.get(timeout=0.2)
@@ -176,6 +307,24 @@ class NomadCastDaemon:
                     self._handle_media_fetch(show_id, payload)
 
     def _handle_refresh(self, show_id: str) -> None:
+        """Fetch the publisher RSS, update cache, and queue media downloads.
+
+        Inputs/Outputs:
+            Uses the Reticulum fetcher to retrieve feed.rss and persists
+            publisher_rss.xml and client_rss.xml under the show's directory.
+
+        Side Effects:
+            Updates state.json, refresh timestamps, and refresh error metadata.
+            Queues media downloads for the most recent episodes_per_show
+            enclosures not already cached.
+
+        Error Conditions:
+            Any exception from fetch, parsing, or file IO records a failure and
+            schedules backoff according to retry_backoff_seconds.
+
+        Thread Safety:
+            Runs on the worker thread; updates shared state under lock.
+        """
         context = self.show_contexts.get(show_id)
         if not context:
             return
@@ -223,6 +372,15 @@ class NomadCastDaemon:
             self.logger.error("Failed to refresh %s: %s", show_id, exc)
 
     def _load_cached_episodes(self, context: ShowContext, order_map: dict[str, int]) -> list[CachedEpisode]:
+        """Reconcile cached media with the refreshed order map.
+
+        Side Effects:
+            Deletes media files not present in the latest order_map (keeping
+            only the newest episodes_per_show items per README).
+
+        Outputs:
+            A list of CachedEpisode metadata for existing files.
+        """
         cached: list[CachedEpisode] = []
         # README: only keep cached files that are still among the latest N.
         for path in context.episodes_dir.iterdir():
@@ -235,6 +393,15 @@ class NomadCastDaemon:
         return cached
 
     def _register_failure(self, context: ShowContext, message: str) -> None:
+        """Record a refresh or media failure and schedule backoff.
+
+        Side Effects:
+            Updates state.json with last_error and failure_count and sets the
+            next_refresh_time based on retry_backoff_seconds.
+
+        Thread Safety:
+            Uses the per-show lock to mutate shared state.
+        """
         with context.lock:
             # README: use retry_backoff_seconds with exponential-ish backoff.
             context.state.last_error = message
@@ -244,6 +411,25 @@ class NomadCastDaemon:
             save_show_state(context.state_path, context.state)
 
     def _handle_media_fetch(self, show_id: str, filename: str) -> None:
+        """Fetch and cache media for a show filename.
+
+        Inputs/Outputs:
+            Downloads file/<show_name>/media/<filename> via the fetcher and
+            writes the media to episodes/<filename> atomically.
+
+        Side Effects:
+            Updates state.json, cached episode metadata, and rebuilds the
+            client RSS with updated enclosure URLs. Enforces max_bytes_per_show
+            eviction if configured.
+
+        Error Conditions:
+            Any exception from fetch or IO registers a failure and logs an
+            error; pending flags are cleared regardless.
+
+        Thread Safety:
+            Runs on the worker thread; uses per-show lock to update flags and
+            cached state.
+        """
         context = self.show_contexts.get(show_id)
         if not context:
             return
@@ -278,6 +464,22 @@ class NomadCastDaemon:
                 context.media_pending.discard(filename)
 
     def _ensure_space_for(self, context: ShowContext, new_size: int) -> bool:
+        """Ensure there is space for a new media file under max_bytes_per_show.
+
+        Inputs:
+            new_size: Size of the incoming payload in bytes.
+
+        Outputs:
+            True if space is available after evicting old files; False if the
+            payload would still exceed max_bytes_per_show.
+
+        Side Effects:
+            Evicts cached files starting from the oldest order_index and
+            updates state.json to reflect removals.
+
+        Thread Safety:
+            Runs on the worker thread; mutates per-show state.
+        """
         # README: enforce max_bytes_per_show with oldest-episode eviction.
         if self.config.max_bytes_per_show <= 0:
             return True
@@ -298,6 +500,19 @@ class NomadCastDaemon:
         return total + new_size <= self.config.max_bytes_per_show
 
     def _rebuild_client_rss(self, context: ShowContext) -> None:
+        """Rewrite publisher RSS into the client-facing feed.
+
+        Outputs:
+            Writes client_rss.xml to the show directory.
+
+        Side Effects:
+            Filters enclosures to cached episodes and rewrites enclosure URLs
+            to the local HTTP server (respecting public_host, listen_host, and
+            listen_port as described in README).
+
+        Thread Safety:
+            Runs on the worker thread; reads from disk without locking.
+        """
         # README: rewrite enclosure URLs to localhost and filter cached items.
         rss_path = context.show_dir / "publisher_rss.xml"
         if not rss_path.exists():

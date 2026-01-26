@@ -22,13 +22,18 @@ RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 
 class NomadCastHTTPServer(ThreadingHTTPServer):
+    """Threading HTTP server that exposes NomadCast daemon endpoints."""
+
     daemon: NomadCastDaemon
 
 
 class NomadCastRequestHandler(BaseHTTPRequestHandler):
+    """Handle HTTP requests for cached feeds and media."""
+
     server: NomadCastHTTPServer
 
     def do_GET(self) -> None:
+        """Handle GET requests for feed and media endpoints."""
         # README: serve cached RSS and media over HTTP to normal podcast apps.
         parsed_path = urlparse(self.path)
         path = parsed_path.path
@@ -40,6 +45,7 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def do_POST(self) -> None:
+        """Handle POST requests for administrative endpoints."""
         # README: POST /reload triggers local config + subscription reload.
         parsed_path = urlparse(self.path)
         if parsed_path.path == "/reload":
@@ -50,6 +56,15 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
 
     def _handle_feed(self, path: str) -> None:
+        """Serve the cached RSS feed or queue a refresh.
+
+        Side Effects:
+            Enqueues a refresh job for the show and serves client_rss.xml if
+            available, otherwise responds with 503.
+
+        Error Conditions:
+            Returns 404 for invalid or missing show paths.
+        """
         # README: return cached RSS (200) or 503 if missing, and enqueue refresh.
         parts = path.split("/", 2)
         if len(parts) < 3 or not parts[2]:
@@ -75,6 +90,15 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(cached)
 
     def _handle_media(self, path: str) -> None:
+        """Serve cached media with Range support.
+
+        Side Effects:
+            Enqueues a media fetch if the file is missing from cache.
+
+        Error Conditions:
+            Returns 400 for invalid filenames, 404 for missing show/filename,
+            404 for cache misses, and 416 for unsatisfiable ranges.
+        """
         # README: serve cached media with Range support; queue fetch if missing.
         parts = path.split("/", 3)
         if len(parts) < 4:
@@ -130,11 +154,20 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(handle.read())
 
     def log_message(self, format: str, *args: object) -> None:
+        """Route HTTP logs through the nomadcastd.http logger."""
         logging.getLogger("nomadcastd.http").info("%s - %s", self.address_string(), format % args)
 
 
 def _parse_range(range_header: str, file_size: int) -> tuple[int, int] | None:
-    """Parse a single HTTP Range header for bytes."""
+    """Parse a single HTTP Range header for bytes.
+
+    Inputs:
+        range_header: The raw Range header value.
+        file_size: Total size of the resource in bytes.
+
+    Outputs:
+        A (start, end) byte range tuple, inclusive, or None if invalid.
+    """
     match = RANGE_RE.match(range_header.strip())
     if not match:
         return None

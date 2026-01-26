@@ -14,6 +14,23 @@ from dataclasses import dataclass
 
 class Fetcher:
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
+        """Fetch a remote resource as raw bytes.
+
+        Inputs:
+            destination_hash: Reticulum destination hash in hex string form.
+            resource_path: Path requested by the publisher, e.g.
+                file/<show>/feed.rss or file/<show>/media/<filename>.
+
+        Outputs:
+            Raw bytes for the requested resource.
+
+        Error Conditions:
+            Implementations should raise exceptions for network errors,
+            timeouts, or invalid destination/resource parameters.
+
+        Thread Safety:
+            Implementations should document whether concurrent calls are safe.
+        """
         raise NotImplementedError
 
 
@@ -23,26 +40,62 @@ class MockFetcher(Fetcher):
     media_payload: bytes = b""
 
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
+        """Return canned payloads for RSS or media paths.
+
+        This test helper ignores destination_hash and matches feed paths based
+        on README conventions.
+        """
         if resource_path == "rss" or resource_path.endswith("/feed.rss"):
             return self.rss_payload
         return self.media_payload
 
 
 class ReticulumFetcher(Fetcher):
-    """Placeholder for Reticulum integration.
+    """Fetcher implementation backed by Reticulum (RNS).
 
-    TODO: Implement Reticulum (RNS) request handling for resource retrieval.
-    The interface should resolve the destination hash to an RNS Identity and
-    request the provided resource path (file/<show>/feed.rss or
-    file/<show>/media/<filename>).
+    Uses the Reticulum configuration directory (config.reticulum_config_dir)
+    to initialize RNS and resolves destination hashes to Identities before
+    requesting resources.
     """
 
     def __init__(self, config_dir: str | None = None) -> None:
+        """Initialize the Reticulum client.
+
+        Inputs:
+            config_dir: Reticulum configuration directory path from the daemon
+                config (reticulum_config_dir).
+
+        Error Conditions:
+            Raises RuntimeError if Reticulum is not installed or is missing
+            required symbols.
+
+        Thread Safety:
+            Reticulum initialization is protected by a class-level lock; it is
+            safe to construct multiple instances.
+        """
         self._rns = self._load_rns()
         self._ensure_reticulum(config_dir)
         self.config_dir = config_dir
 
     def fetch_bytes(self, destination_hash: str, resource_path: str) -> bytes:
+        """Fetch a resource via Reticulum and return its payload.
+
+        Inputs:
+            destination_hash: Hex-encoded destination hash.
+            resource_path: Resource path such as file/<show>/feed.rss or
+                file/<show>/media/<filename>.
+
+        Outputs:
+            Raw payload bytes from Reticulum.
+
+        Error Conditions:
+            Raises ValueError for invalid destination hashes, RuntimeError for
+            rejected/failed requests, and TimeoutError for link or request
+            timeouts.
+
+        Thread Safety:
+            Link objects are per-call; this method is safe for concurrent use.
+        """
         destination_identity = self._resolve_identity(destination_hash)
         destination = self._rns.Destination(
             destination_identity,
@@ -67,6 +120,7 @@ class ReticulumFetcher(Fetcher):
     _request_timeout_seconds = 120.0
 
     def _load_rns(self):
+        """Load the Reticulum module, supporting multiple package layouts."""
         rns_spec = importlib.util.find_spec("RNS")
         reticulum_spec = importlib.util.find_spec("reticulum")
         if rns_spec is None and reticulum_spec is None:
@@ -90,6 +144,7 @@ class ReticulumFetcher(Fetcher):
         return reticulum_module
 
     def _validate_rns_module(self, module) -> None:
+        """Ensure the Reticulum module exposes required symbols."""
         missing = [
             name
             for name in ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
@@ -103,12 +158,19 @@ class ReticulumFetcher(Fetcher):
             )
 
     def _ensure_reticulum(self, config_dir: str | None) -> None:
+        """Initialize the Reticulum singleton if needed."""
         cls = type(self)
         with cls._reticulum_lock:
             if cls._reticulum_instance is None:
                 cls._reticulum_instance = self._rns.Reticulum(config_dir)
 
     def _resolve_identity(self, destination_hash: str):
+        """Resolve a destination hash into a Reticulum Identity.
+
+        Error Conditions:
+            Raises ValueError for invalid hex and RuntimeError if the identity
+            cannot be recalled from Reticulum's cache.
+        """
         try:
             destination_bytes = bytes.fromhex(destination_hash)
         except ValueError as exc:
@@ -121,6 +183,12 @@ class ReticulumFetcher(Fetcher):
         return identity
 
     def _await_link(self, link, resource_path: str) -> None:
+        """Wait for a Reticulum link to become ACTIVE.
+
+        Error Conditions:
+            Raises RuntimeError if the link closes and TimeoutError if the
+            link is not active before _link_timeout_seconds.
+        """
         deadline = time.monotonic() + self._link_timeout_seconds
         while time.monotonic() < deadline:
             if link.status == self._rns.Link.ACTIVE:
@@ -131,6 +199,12 @@ class ReticulumFetcher(Fetcher):
         raise TimeoutError(f"Timed out establishing Reticulum link for {resource_path}")
 
     def _await_request(self, receipt, resource_path: str) -> bytes:
+        """Wait for a Reticulum request receipt to complete.
+
+        Error Conditions:
+            Raises RuntimeError on FAILED or missing response and TimeoutError
+            if the response is not ready before _request_timeout_seconds.
+        """
         deadline = time.monotonic() + self._request_timeout_seconds
         while time.monotonic() < deadline:
             status = receipt.get_status()
