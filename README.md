@@ -52,7 +52,7 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 - [Community conventions](#community-conventions)
 - [How it works (more technical)](#how-it-works-more-technical)
 - [Source code guide](#source-code-guide)
-- [Protocol handler (nomadcast:)](#protocol-handler-nomadcast)
+- [Protocol handler (nomadcast://)](#protocol-handler-nomadcast)
 - [Installation notes (developer-oriented)](#installation-notes-developer-oriented)
 - [How to run tests & coverage](#how-to-run-tests--coverage)
 - [Roadmap (future capabilities)](#roadmap-future-capabilities)
@@ -66,7 +66,7 @@ Think of this like subscribing to any other podcast, just with one extra helper 
 2. Start the NomadCast daemon (it runs quietly in the background).
 3. Click a NomadCast podcast link on a NomadNet page; NomadCast pops up to confirm the add.
 4. NomadCast adds the show to its config and launches your regular podcast player with a local URL like:
-   - http://127.0.0.1:5050/feeds/<identity_hash:ShowName>
+   - http://127.0.0.1:5050/feeds/<identity_hash%3AShowName>
 
 After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and episode files available even when Reticulum is slow or offline by serving a local cache.
 
@@ -83,12 +83,12 @@ In your NomadNet page (or wherever you share the show), publish a normal-looking
 Example:
 
 ```micron
-[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld)
+[Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld)
 ```
 
 If you want a fallback for users who cannot click the link, include the raw locator on the next line:
 
-- `nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld`
+- `nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld`
 
 Notes:
 - `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
@@ -102,12 +102,12 @@ Micron example (NomadNet-friendly):
 ```micron
 ## Subscribe
 
-[Subscribe to this podcast](nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld)
+[Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20%3ABestPodcastInTheWorld)
 
 If that link does not open your podcast app, copy and paste that link into [NomadCast](https://github.com/jamesdwilson/nomadcast)
 ```
 
-On first run, NomadCast registers itself as a system-wide protocol handler for `nomadcast://` links (and the shorter `nomadcast:` form), so clicking the link above will open NomadCast directly on supported systems.
+On first run, NomadCast registers itself as a system-wide protocol handler for `nomadcast://` links, so clicking the link above will open NomadCast directly on supported systems.
 
 
 1. Install Nomad Network:
@@ -194,10 +194,10 @@ flowchart LR
    - <identity_hash:ShowName>
 
 2. The daemon creates a local, stable feed URL:
-   - http://127.0.0.1:5050/feeds/<identity_hash:ShowName>
+   - http://127.0.0.1:5050/feeds/<identity_hash%3AShowName>
 
 3. Podcast app requests the feed:
-   - GET /feeds/<identity_hash:ShowName>
+   - GET /feeds/<identity_hash%3AShowName>
 
 4. The daemon responds immediately with cached RSS (if present) and triggers refresh in the background:
    - It fetches the authoritative RSS bytes from the publisher over Reticulum.
@@ -205,7 +205,7 @@ flowchart LR
    - It rewrites only the media URLs inside the RSS so enclosures point back to localhost.
 
 5. Podcast app requests episode audio:
-   - GET /media/<identity_hash:ShowName>/<episode_id_or_filename>
+   - GET /media/<identity_hash%3AShowName>/<episode_id_or_filename>
 
 6. The daemon serves from local cache if available.
    - If not cached, it queues a Reticulum fetch.
@@ -227,7 +227,7 @@ It only rewrites:
 - `<enclosure url="...">` and any other media URLs that point at the publisher’s Reticulum-hosted objects
 
 Into:
-- `http://127.0.0.1:5050/media/<identity_hash:ShowName>/<token>`
+- `http://127.0.0.1:5050/media/<identity_hash%3AShowName>/<token>`
 
 Everything else is preserved, byte-for-byte where feasible:
 - title, description, GUID, pubDate, iTunes tags, chapters, artwork references, etc.
@@ -259,19 +259,19 @@ NomadCast is split into a UI package and a daemon package:
   - `daemon.py` orchestrates refreshes, queueing, cache management, and RSS rewrites.
   - `server.py` exposes the HTTP endpoints (`/feeds`, `/media`, `/reload`) and Range support.
   - `rss.py` parses RSS and rewrites enclosure URLs to localhost.
-  - `parsing.py` validates `nomadcast:` locators and encodes/decodes show paths.
+  - `parsing.py` validates `nomadcast://` locators and encodes/decodes show paths.
   - `storage.py` owns on-disk layout helpers and atomic writes.
   - `config.py` reads/writes the INI config format used by the daemon.
   - `fetchers.py` defines the Reticulum fetcher interface (with a mock for tests).
 
 Tests live in `tests/` and focus on parsing, RSS rewriting, and HTTP range behavior.
 
-## Protocol handler (nomadcast:)
+## Protocol handler (nomadcast://)
 
-NomadCast v0 registers a system URL protocol handler for the `nomadcast:` scheme the first time you run the UI.
+NomadCast v0 registers a system URL protocol handler for the `nomadcast://` scheme the first time you run the UI.
 
 Expectation:
-- NomadNet users can click a `nomadcast:` link and NomadCast will open.
+- NomadNet users can click a `nomadcast://` link and NomadCast will open.
 - NomadCast will add the subscription to the daemon config.
 - NomadCast will then auto-launch the system `podcast://` handler to subscribe the user’s podcast app to the local feed URL.
 
@@ -279,10 +279,10 @@ Publisher-facing link format (what you put on a NomadNet page):
 
 - [Subscribe to this podcast](nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld)
 
-Both `nomadcast://` and the shorter `nomadcast:` form are accepted; use the double-slash form when you want a fully-qualified URL scheme in browsers.
+Use the double-slash form when you want a fully-qualified URL scheme in browsers.
 
 Listener side behavior (v0):
-1) Link click launches `nomadcast` with the full `nomadcast:...` URI as an argument.
+1) Link click launches `nomadcast` with the full `nomadcast://...` URI as an argument.
 2) `nomadcast` writes the subscription to config and triggers daemon reload.
 3) `nomadcast` opens:
 
@@ -420,7 +420,7 @@ python -m nomadcast
 To add a subscription from the command line (simulating a protocol handler click):
 
 ```bash
-python -m nomadcast "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+python -m nomadcast "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 
 To manage subscriptions directly with the daemon (handy for scripts or headless nodes):
@@ -429,7 +429,7 @@ Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscr
 
 ```bash
 python -m nomadcastd feeds ls
-python -m nomadcastd feeds add "nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+python -m nomadcastd feeds add "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 python -m nomadcastd feeds rm "a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 
