@@ -86,7 +86,9 @@ class NomadCastDaemon:
         # README: daemon bridges Reticulum-hosted feeds to local HTTP.
         self.logger = logging.getLogger("nomadcastd")
         self.config = config or load_config()
+        self.logger.debug("Daemon config loaded: %s", self.config)
         if fetcher is not None:
+            self.logger.debug("Using injected fetcher %s", type(fetcher).__name__)
             self.fetcher = fetcher
         else:
             try:
@@ -115,6 +117,7 @@ class NomadCastDaemon:
         """
         # Prepare storage layout described in README.
         self.config.storage_path.mkdir(parents=True, exist_ok=True)
+        self.logger.debug("Storage path ensured at %s", self.config.storage_path)
         self.reload_config()
         self.worker_thread.start()
 
@@ -132,6 +135,7 @@ class NomadCastDaemon:
         self.stop_event.set()
         self.queue.put(("stop", "", None))
         self.worker_thread.join(timeout=5)
+        self.logger.debug("Daemon stop complete")
 
     def reload_config(self) -> None:
         """Reload config and subscriptions, rebuilding show contexts.
@@ -150,7 +154,9 @@ class NomadCastDaemon:
         """
         # Reload config and subscriptions (README: POST /reload triggers this).
         self.config = load_config(self.config.config_path)
+        self.logger.debug("Reloaded config from %s", self.config.config_path)
         subscription_uris = load_subscriptions(self.config.config_path)
+        self.logger.debug("Loaded %d subscription URI(s)", len(subscription_uris))
         subscriptions: list[Subscription] = []
         for uri in subscription_uris:
             try:
@@ -170,6 +176,7 @@ class NomadCastDaemon:
             state = load_show_state(state_path, subscription.uri, subscription.show_name)
             context = self.show_contexts.get(show_id)
             if context:
+                self.logger.debug("Updating existing context for %s", show_id)
                 context.subscription = subscription
                 context.show_dir = show_dir
                 context.episodes_dir = dirs["episodes_dir"]
@@ -178,6 +185,7 @@ class NomadCastDaemon:
                 context.state = state
                 new_contexts[show_id] = context
             else:
+                self.logger.debug("Creating new context for %s", show_id)
                 new_contexts[show_id] = ShowContext(
                     subscription=subscription,
                     show_dir=show_dir,
@@ -205,18 +213,33 @@ class NomadCastDaemon:
         """
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("Refresh requested for unknown show_id=%s", show_id)
             return
         with context.lock:
             now = time.time()
             # Debounce refresh requests and honor RSS polling interval
             # (README: rss_poll_seconds, backoff behavior).
             if context.refresh_pending:
+                self.logger.debug("Refresh already pending for %s", show_id)
                 return
             if context.state.last_refresh and now - context.state.last_refresh < self.config.rss_poll_seconds:
+                self.logger.debug(
+                    "Refresh skipped for %s: last_refresh=%s rss_poll_seconds=%s",
+                    show_id,
+                    context.state.last_refresh,
+                    self.config.rss_poll_seconds,
+                )
                 return
             if now < context.next_refresh_time:
+                self.logger.debug(
+                    "Refresh backoff active for %s: next_refresh_time=%s now=%s",
+                    show_id,
+                    context.next_refresh_time,
+                    now,
+                )
                 return
             context.refresh_pending = True
+        self.logger.debug("Enqueued refresh for %s", show_id)
         self.queue.put(("refresh", show_id, None))
 
     def enqueue_media_fetch(self, show_id: str, filename: str) -> None:
@@ -234,11 +257,14 @@ class NomadCastDaemon:
         # Track per-show pending downloads so we don't queue duplicates.
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("Media fetch requested for unknown show_id=%s", show_id)
             return
         with context.lock:
             if filename in context.media_pending:
+                self.logger.debug("Media fetch already pending for %s/%s", show_id, filename)
                 return
             context.media_pending.add(filename)
+        self.logger.debug("Enqueued media fetch for %s/%s", show_id, filename)
         self.queue.put(("media", show_id, filename))
 
     def get_cached_rss(self, show_id: str) -> bytes | None:
@@ -252,10 +278,13 @@ class NomadCastDaemon:
         """
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("No context for cached RSS lookup for %s", show_id)
             return None
         rss_path = context.show_dir / "client_rss.xml"
         if rss_path.exists():
+            self.logger.debug("Serving cached RSS for %s", show_id)
             return rss_path.read_bytes()
+        self.logger.debug("Cached RSS missing for %s", show_id)
         return None
 
     def get_media_path(self, show_id: str, filename: str) -> Path | None:
@@ -269,10 +298,13 @@ class NomadCastDaemon:
         """
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("No context for media lookup for %s/%s", show_id, filename)
             return None
         candidate = context.episodes_dir / filename
         if candidate.exists():
+            self.logger.debug("Serving cached media for %s/%s", show_id, filename)
             return candidate
+        self.logger.debug("Cached media missing for %s/%s", show_id, filename)
         return None
 
     def show_id_from_path(self, show_path: str) -> str | None:
@@ -310,11 +342,14 @@ class NomadCastDaemon:
             except queue.Empty:
                 continue
             if job_type == "stop":
+                self.logger.debug("Worker loop received stop signal")
                 return
             if job_type == "refresh":
+                self.logger.debug("Worker handling refresh for %s", show_id)
                 self._handle_refresh(show_id)
             elif job_type == "media":
                 if payload:
+                    self.logger.debug("Worker handling media for %s/%s", show_id, payload)
                     self._handle_media_fetch(show_id, payload)
 
     def _handle_refresh(self, show_id: str) -> None:
@@ -338,15 +373,19 @@ class NomadCastDaemon:
         """
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("Refresh skipped: missing context for %s", show_id)
             return
         with context.lock:
             context.refresh_pending = False
         try:
             # README: fetch publisher RSS over Reticulum and store raw bytes.
             rss_path = f"file/{context.subscription.show_name}/feed.rss"
+            self.logger.debug("Fetching RSS for %s at %s", show_id, rss_path)
             rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, rss_path)
+            self.logger.debug("Fetched RSS for %s (%d bytes)", show_id, len(rss_bytes))
             write_atomic(context.show_dir / "publisher_rss.xml", rss_bytes)
             _, items = parse_rss_items(rss_bytes)
+            self.logger.debug("Parsed %d RSS items for %s", len(items), show_id)
             ordered_items = items
             if any(item.pub_date is not None for item in items):
                 ordered_items = sorted(
@@ -355,6 +394,12 @@ class NomadCastDaemon:
                     reverse=True,
                 )
             selected_items = ordered_items[: self.config.episodes_per_show]
+            self.logger.debug(
+                "Selected %d item(s) for %s (episodes_per_show=%s)",
+                len(selected_items),
+                show_id,
+                self.config.episodes_per_show,
+            )
             order_map: dict[str, int] = {}
             # README: queue downloads for the most recent N episodes.
             for index, item in enumerate(selected_items):
@@ -362,8 +407,15 @@ class NomadCastDaemon:
                     try:
                         dest_hash, show_name, filename = parse_nomadcast_media_url(url)
                     except ValueError:
+                        self.logger.debug("Skipping non-nomadcast enclosure URL: %s", url)
                         continue
                     if dest_hash != context.subscription.destination_hash or show_name != context.subscription.show_name:
+                        self.logger.debug(
+                            "Skipping enclosure for %s: dest=%s show=%s",
+                            show_id,
+                            dest_hash,
+                            show_name,
+                        )
                         continue
                     order_map[filename] = index
                     if not (context.episodes_dir / filename).exists():
@@ -375,6 +427,12 @@ class NomadCastDaemon:
                 context.state.failure_count = 0
                 context.state.cached_episodes = self._load_cached_episodes(context, order_map)
                 save_show_state(context.state_path, context.state)
+            self.logger.debug(
+                "Refresh updated state for %s: cached=%d order_map=%d",
+                show_id,
+                len(context.state.cached_episodes),
+                len(order_map),
+            )
             # Rebuild client RSS after refresh per README rewrite rules.
             self._rebuild_client_rss(context)
             self.logger.info("Refreshed RSS for %s", show_id)
@@ -396,6 +454,7 @@ class NomadCastDaemon:
         # README: only keep cached files that are still among the latest N.
         for path in context.episodes_dir.iterdir():
             if path.is_file() and path.name not in order_map:
+                self.logger.debug("Evicting stale media %s", path.name)
                 path.unlink()
         for filename, order_index in order_map.items():
             path = context.episodes_dir / filename
@@ -420,6 +479,13 @@ class NomadCastDaemon:
             backoff = self.config.retry_backoff_seconds * min(2 ** context.state.failure_count, 8)
             context.next_refresh_time = time.time() + backoff
             save_show_state(context.state_path, context.state)
+        self.logger.error(
+            "Registered failure for %s: %s (failure_count=%s backoff=%s)",
+            context.subscription.show_id,
+            message,
+            context.state.failure_count,
+            backoff,
+        )
 
     def _handle_media_fetch(self, show_id: str, filename: str) -> None:
         """Fetch and cache media for a show filename.
@@ -443,13 +509,17 @@ class NomadCastDaemon:
         """
         context = self.show_contexts.get(show_id)
         if not context:
+            self.logger.debug("Media fetch skipped: missing context for %s/%s", show_id, filename)
             return
         try:
             if (context.episodes_dir / filename).exists():
+                self.logger.debug("Media already cached for %s/%s", show_id, filename)
                 return
             # README: fetch media/<filename> over Reticulum.
             media_path = f"file/{context.subscription.show_name}/media/{filename}"
+            self.logger.debug("Fetching media for %s/%s at %s", show_id, filename, media_path)
             payload = self.fetcher.fetch_bytes(context.subscription.destination_hash, media_path)
+            self.logger.debug("Fetched media for %s/%s (%d bytes)", show_id, filename, len(payload))
             if self.config.max_bytes_per_show > 0:
                 if not self._ensure_space_for(context, len(payload)):
                     self.logger.warning("Skipping %s: exceeds max_bytes_per_show", filename)
@@ -465,6 +535,7 @@ class NomadCastDaemon:
                     CachedEpisode(filename=filename, order_index=order_index, size_bytes=len(payload))
                 )
                 save_show_state(context.state_path, context.state)
+            self.logger.debug("Updated cached episodes for %s/%s", show_id, filename)
             self._rebuild_client_rss(context)
             self.logger.info("Cached media %s for %s", filename, show_id)
         except Exception as exc:
@@ -493,10 +564,16 @@ class NomadCastDaemon:
         """
         # README: enforce max_bytes_per_show with oldest-episode eviction.
         if self.config.max_bytes_per_show <= 0:
+            self.logger.debug("Max bytes per show disabled; skipping eviction")
             return True
         cached = context.state.cached_episodes
         total = sum(item.size_bytes for item in cached)
         if total + new_size <= self.config.max_bytes_per_show:
+            self.logger.debug(
+                "Sufficient space for new payload (%d bytes) under max_bytes_per_show=%d",
+                new_size,
+                self.config.max_bytes_per_show,
+            )
             return True
         evictable = sorted(cached, key=lambda item: item.order_index, reverse=True)
         while evictable and total + new_size > self.config.max_bytes_per_show:
@@ -504,10 +581,17 @@ class NomadCastDaemon:
             path = context.episodes_dir / oldest.filename
             if path.exists():
                 total -= oldest.size_bytes
+                self.logger.debug("Evicting %s to free %d bytes", oldest.filename, oldest.size_bytes)
                 path.unlink()
             cached = [item for item in cached if item.filename != oldest.filename]
         context.state.cached_episodes = cached
         save_show_state(context.state_path, context.state)
+        self.logger.debug(
+            "Eviction complete: total=%d new_size=%d max=%d",
+            total,
+            new_size,
+            self.config.max_bytes_per_show,
+        )
         return total + new_size <= self.config.max_bytes_per_show
 
     def _rebuild_client_rss(self, context: ShowContext) -> None:
@@ -527,6 +611,7 @@ class NomadCastDaemon:
         # README: rewrite enclosure URLs to localhost and filter cached items.
         rss_path = context.show_dir / "publisher_rss.xml"
         if not rss_path.exists():
+            self.logger.debug("Publisher RSS missing for %s; skipping rewrite", context.subscription.show_id)
             return
         rss_bytes = rss_path.read_bytes()
         listen_host = self.config.public_host
@@ -536,6 +621,14 @@ class NomadCastDaemon:
             listen_host = self.config.listen_host if self.config.listen_host != "0.0.0.0" else "127.0.0.1"
         show_path = encode_show_path(context.subscription.destination_hash, context.subscription.show_name)
         cached_filenames = cached_episode_filenames(context.state.cached_episodes)
+        self.logger.debug(
+            "Rewriting RSS for %s with host=%s port=%s cached=%d show_path=%s",
+            context.subscription.show_id,
+            listen_host,
+            self.config.listen_port,
+            len(cached_filenames),
+            show_path,
+        )
         client_bytes = rewrite_rss(
             rss_bytes=rss_bytes,
             listen_host=listen_host,
