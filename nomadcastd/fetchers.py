@@ -246,7 +246,7 @@ class ReticulumFetcher(Fetcher):
             self.logger.error("Reticulum module not found (RNS/reticulum)")
             raise RuntimeError(
                 "Reticulum Network Stack is not installed (no RNS or reticulum module found). "
-                "Install the RNS/Reticulum package and retry."
+                "Install it with `pip install rns` and retry."
             )
         if rns_spec is not None:
             module = importlib.import_module("RNS")
@@ -277,7 +277,7 @@ class ReticulumFetcher(Fetcher):
                 "Found a 'reticulum' package, but it does not expose the Reticulum "
                 "Network Stack symbols (Reticulum, Destination, Link, Identity, RequestReceipt). "
                 "This is likely a different package. Install the Reticulum Network Stack "
-                "package (module name 'RNS') and retry."
+                "with `pip install rns` (module name 'RNS') and retry."
             ) from exc
         self.logger.debug("Loaded Reticulum module from reticulum root")
         return reticulum_module

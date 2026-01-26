@@ -1,3 +1,4 @@
 # NomadCast daemon and Tkinter UI dependencies.
 pystray>=0.19
 pillow>=10.0
+rns
