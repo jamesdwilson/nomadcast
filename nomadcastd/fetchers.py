@@ -200,6 +200,7 @@ class ReticulumFetcher(Fetcher):
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
+    _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
 
     def _load_rns(self) -> RNSModule:
         """Load the Reticulum module, supporting multiple package layouts."""
@@ -227,17 +228,42 @@ class ReticulumFetcher(Fetcher):
 
     def _validate_rns_module(self, module: ModuleType | RNSModule) -> None:
         """Ensure the Reticulum module exposes required symbols."""
-        missing = [
-            name
-            for name in ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
-            if not hasattr(module, name)
-        ]
+        self._populate_rns_module(module)
+        missing = [name for name in self._required_rns_symbols if not hasattr(module, name)]
         if missing:
             missing_list = ", ".join(missing)
             raise RuntimeError(
                 "Reticulum import does not expose required symbols "
                 f"({missing_list}). Ensure the Reticulum Python package is installed correctly."
             )
+
+    def _populate_rns_module(self, module: ModuleType | RNSModule) -> None:
+        """Attempt to load missing RNS symbols from known submodules."""
+        for symbol in self._required_rns_symbols:
+            if hasattr(module, symbol):
+                continue
+            for candidate in self._candidate_rns_modules(module.__name__, symbol):
+                if importlib.util.find_spec(candidate) is None:
+                    continue
+                submodule = importlib.import_module(candidate)
+                if hasattr(submodule, symbol):
+                    setattr(module, symbol, getattr(submodule, symbol))
+                    break
+
+    def _candidate_rns_modules(self, base: str, symbol: str) -> list[str]:
+        candidates = [f"{base}.{symbol}"]
+        if base != "RNS" and not base.endswith(".RNS"):
+            candidates.append(f"{base}.RNS.{symbol}")
+        if base != "RNS":
+            candidates.append(f"RNS.{symbol}")
+        seen: set[str] = set()
+        unique: list[str] = []
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            unique.append(candidate)
+        return unique
 
     def _ensure_reticulum(self, config_dir: str | None) -> None:
         """Initialize the Reticulum singleton if needed."""
