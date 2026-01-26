@@ -393,7 +393,7 @@ class NomadCastDaemon:
             context.refresh_pending = False
         try:
             # README: fetch publisher RSS over Reticulum and store raw bytes.
-            rss_path = f"file/{context.subscription.show_name}/feed.rss"
+            rss_path = f"/file/{context.subscription.show_name}/feed.rss"
             self.logger.info("Refreshing RSS for %s (%s)", show_id, rss_path)
             self.logger.debug("Fetching RSS for %s at %s", show_id, rss_path)
             rss_bytes = self.fetcher.fetch_bytes(context.subscription.destination_hash, rss_path)
@@ -531,7 +531,7 @@ class NomadCastDaemon:
                 self.logger.debug("Media already cached for %s/%s", show_id, filename)
                 return
             # README: fetch media/<filename> over Reticulum.
-            media_path = f"file/{context.subscription.show_name}/media/{filename}"
+            media_path = f"/file/{context.subscription.show_name}/media/{filename}"
             self.logger.debug("Fetching media for %s/%s at %s", show_id, filename, media_path)
             payload = self.fetcher.fetch_bytes(context.subscription.destination_hash, media_path)
             self.logger.debug("Fetched media for %s/%s (%d bytes)", show_id, filename, len(payload))
