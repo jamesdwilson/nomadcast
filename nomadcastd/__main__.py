@@ -74,11 +74,28 @@ def _run_daemon(config_path: Path | None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
+    reticulum_config_summary = (
+        config.reticulum_config_dir if config.reticulum_config_dir is not None else "defaults (e.g. ~/.reticulum)"
+    )
+    logger.info("NomadCast config loaded from %s", config.config_path)
+    logger.info(
+        "Feed server binding listen_host=%s listen_port=%s public_host=%s",
+        config.listen_host,
+        config.listen_port,
+        config.public_host,
+    )
+    logger.info("Reticulum config_dir: %s", reticulum_config_summary)
+    logger.info(
+        "Reticulum destination app=%s aspects=%s",
+        config.reticulum_destination_app,
+        config.reticulum_destination_aspects,
+    )
+    logger.info(
+        "To use a different config file, run: nomadcastd --config PATH "
+        "(reticulum.config_dir lives in that file)."
+    )
     daemon = NomadCastDaemon(config=config)
     daemon.start()
-
-    if config.reticulum_config_dir is None:
-        logger.info("Reticulum config_dir not set; using Reticulum defaults (e.g. ~/.reticulum).")
 
     if config.listen_host not in {"127.0.0.1", "localhost", "::1"}:
         logger.warning(
