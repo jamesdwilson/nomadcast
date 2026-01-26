@@ -27,6 +27,7 @@ class TkUiLauncher:
         """Launch the Tkinter UI application."""
         import tkinter as tk
         from tkinter import ttk
+        from pathlib import Path
 
         service = SubscriptionService()
 
@@ -34,6 +35,11 @@ class TkUiLauncher:
         root.title(self._config.title)
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
+        icon_path = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
+        if icon_path.exists():
+            icon_image = tk.PhotoImage(file=str(icon_path))
+            root.iconphoto(True, icon_image)
+            root.icon_image = icon_image
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
@@ -129,6 +135,18 @@ class TkUiLauncher:
         health_button.state(["disabled"])
         health_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
+        root.update_idletasks()
+        window_width = root.winfo_width()
+        window_height = root.winfo_height()
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        position_x = max((screen_width - window_width) // 2, 0)
+        position_y = max((screen_height - window_height) // 2, 0)
+        root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+        root.attributes("-topmost", True)
+        root.lift()
+        root.focus_force()
+        root.after(250, lambda: root.attributes("-topmost", False))
         locator_input.focus()
         root.bind("<Return>", lambda event: add_button.invoke())
         coming_soon = ttk.Label(
