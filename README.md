@@ -379,7 +379,7 @@ config_dir =
 Reticulum/NomadNet considerations:
 
 - `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
-- `reticulum.config_dir` lets you point NomadCast at a specific Reticulum/NomadNet config folder if you run multiple nodes, or align with an existing NomadNet config (for example `~/.nomadnetwork`).
+- On first run, NomadCast offers to import NomadNet interfaces into its own Reticulum config at `~/.nomadcast/reticulum`. Startup will fail if that config is missing or has no interfaces, to avoid ambiguous network state.
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
