@@ -225,19 +225,7 @@ class ReticulumFetcher(Fetcher):
             getattr(self._rns, "__name__", type(self._rns).__name__),
             getattr(self._rns, "__file__", "unknown"),
         )
-        destination_identity = self._resolve_identity(destination_hash)
-        self.logger.info(
-            "Reticulum identity resolved destination=%s identity=%r",
-            destination_hash,
-            destination_identity,
-        )
-        destination = self._rns.Destination(
-            destination_identity,
-            self._rns.Destination.OUT,
-            self._rns.Destination.SINGLE,
-            self.destination_app,
-            *self.destination_aspects,
-        )
+        destination = self._resolve_destination(destination_hash)
         self.logger.info(
             "Reticulum destination constructed destination=%s type=%s obj=%r",
             destination_hash,
@@ -396,18 +384,70 @@ class ReticulumFetcher(Fetcher):
             else:
                 self.logger.info("Reusing Reticulum singleton instance=%r", cls._reticulum_instance)
 
-    def _resolve_identity(self, destination_hash: str) -> IdentityType:
-        """Resolve a destination hash into a Reticulum Identity.
+    def _resolve_destination(self, destination_hash: str) -> DestinationType:
+        """Resolve a destination hash into a Reticulum Destination.
 
         Error Conditions:
-            Raises ValueError for invalid hex and RuntimeError if the identity
-            cannot be recalled from Reticulum's cache.
+            Raises ValueError for invalid hex and RuntimeError if neither a
+            destination nor an identity can be resolved.
         """
         try:
             destination_bytes = bytes.fromhex(destination_hash)
         except ValueError as exc:
             self.logger.error("Destination hash is not valid hex: %s", destination_hash)
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
+        destination = self._recall_destination(destination_hash, destination_bytes)
+        if destination is not None:
+            return destination
+        destination_identity = self._resolve_identity(destination_hash, destination_bytes)
+        self.logger.info(
+            "Reticulum identity resolved destination=%s identity=%r",
+            destination_hash,
+            destination_identity,
+        )
+        destination = self._rns.Destination(
+            destination_identity,
+            self._rns.Destination.OUT,
+            self._rns.Destination.SINGLE,
+            self.destination_app,
+            *self.destination_aspects,
+        )
+        return destination
+
+    def _recall_destination(
+        self,
+        destination_hash: str,
+        destination_bytes: bytes,
+    ) -> DestinationType | None:
+        """Attempt to recall a Destination directly from its hash."""
+        destination_cls = self._rns.Destination
+        recall = getattr(destination_cls, "recall", None)
+        if callable(recall):
+            destination = recall(destination_bytes)
+            if destination is not None:
+                self.logger.info(
+                    "Reticulum destination recalled from destination hash %s",
+                    destination_hash,
+                )
+                return destination
+        from_hash = getattr(destination_cls, "from_hash", None)
+        if callable(from_hash):
+            destination = from_hash(destination_bytes)
+            if destination is not None:
+                self.logger.info(
+                    "Reticulum destination constructed from hash %s",
+                    destination_hash,
+                )
+                return destination
+        return None
+
+    def _resolve_identity(self, destination_hash: str, destination_bytes: bytes) -> IdentityType:
+        """Resolve a destination hash into a Reticulum Identity.
+
+        Error Conditions:
+            Raises ValueError for invalid hex and RuntimeError if the identity
+            cannot be recalled from Reticulum's cache.
+        """
         self.logger.info(
             "Resolving Reticulum identity destination=%s bytes=%d",
             destination_hash,
