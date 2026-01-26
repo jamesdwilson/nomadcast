@@ -37,8 +37,6 @@ def maybe_prompt_install_app(root: object) -> None:
     if _running_from_app_bundle() and target.platform == "Darwin":
         return
 
-    _record_prompt_stamp()
-
     from tkinter import messagebox
 
     answer = messagebox.askyesno(
@@ -49,6 +47,7 @@ def maybe_prompt_install_app(root: object) -> None:
         ),
         parent=root,
     )
+    _record_prompt_stamp()
     if not answer:
         return
 
