@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from nomadcastd.config import NomadCastConfig, load_config, load_subscriptions
-from nomadcastd.fetchers import Fetcher, ReticulumFetcher
+from nomadcastd.fetchers import Fetcher, MockFetcher, ReticulumFetcher
 from nomadcastd.parsing import (
     Subscription,
     decode_show_path,
@@ -86,7 +86,17 @@ class NomadCastDaemon:
         # README: daemon bridges Reticulum-hosted feeds to local HTTP.
         self.logger = logging.getLogger("nomadcastd")
         self.config = config or load_config()
-        self.fetcher = fetcher or ReticulumFetcher(self.config.reticulum_config_dir)
+        if fetcher is not None:
+            self.fetcher = fetcher
+        else:
+            try:
+                self.fetcher = ReticulumFetcher(self.config.reticulum_config_dir)
+            except RuntimeError as exc:
+                self.logger.warning(
+                    "Reticulum unavailable (%s); falling back to MockFetcher.",
+                    exc,
+                )
+                self.fetcher = MockFetcher()
         self.show_contexts: dict[str, ShowContext] = {}
         self.queue: queue.Queue[tuple[str, str, str | None]] = queue.Queue()
         self.stop_event = threading.Event()
