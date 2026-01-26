@@ -29,11 +29,22 @@ class TkUiLauncher:
         import tkinter as tk
         from tkinter import ttk
         from pathlib import Path
+        import platform
+        import os
 
         service = SubscriptionService()
 
+        if platform.system() == "Darwin":
+            os.environ.setdefault("CFBundleName", "NomadCast")
+            os.environ.setdefault("CFBundleDisplayName", "NomadCast")
+
         root = tk.Tk()
         root.tk.call("tk", "appname", "NomadCast")
+        if platform.system() == "Darwin":
+            try:
+                root.tk.call("tk::mac::SetApplicationName", "NomadCast")
+            except tk.TclError:
+                pass
         root.title(self._config.title)
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
@@ -43,9 +54,12 @@ class TkUiLauncher:
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
 
-        root.withdraw()
+        should_hide_window = platform.system() != "Darwin"
+        if should_hide_window:
+            root.withdraw()
         maybe_prompt_install_app(root)
-        root.deiconify()
+        if should_hide_window:
+            root.deiconify()
 
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
