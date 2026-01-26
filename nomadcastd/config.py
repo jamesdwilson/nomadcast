@@ -64,7 +64,7 @@ def _parse_bool(value: str | None, default: bool) -> bool:
 
 def _load_config_parser(config_path: Path) -> configparser.ConfigParser:
     """Load the INI config file from disk."""
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(strict=False)
     parser.read(config_path)
     return parser
 
