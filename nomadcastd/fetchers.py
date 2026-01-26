@@ -6,12 +6,13 @@ README requires a fetch_bytes(destination_hash, resource_path) interface and
 allows a mock implementation for tests while real RNS integration is pending.
 """
 
+import importlib
 import importlib.util
 import threading
 import time
 from dataclasses import dataclass
 from types import ModuleType
-from typing import Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
 
 
 class IdentityProtocol(Protocol):
@@ -71,13 +72,26 @@ class ReticulumProtocol(Protocol):
     def __init__(self, config_dir: str | None) -> None:
         ...
 
+if TYPE_CHECKING:
+    from RNS import Destination as DestinationType
+    from RNS import Identity as IdentityType
+    from RNS import Link as LinkType
+    from RNS import RequestReceipt as RequestReceiptType
+    from RNS import Reticulum as ReticulumType
+else:
+    DestinationType: TypeAlias = DestinationProtocol
+    IdentityType: TypeAlias = IdentityProtocol
+    LinkType: TypeAlias = LinkProtocol
+    RequestReceiptType: TypeAlias = RequestReceiptProtocol
+    ReticulumType: TypeAlias = ReticulumProtocol
+
 
 class RNSModule(Protocol):
-    Reticulum: type[ReticulumProtocol]
-    Destination: type[DestinationProtocol]
-    Link: type[LinkProtocol]
-    Identity: type[IdentityProtocol]
-    RequestReceipt: type[RequestReceiptProtocol]
+    Reticulum: type[ReticulumType]
+    Destination: type[DestinationType]
+    Link: type[LinkType]
+    Identity: type[IdentityType]
+    RequestReceipt: type[RequestReceiptType]
 
 
 class Fetcher(Protocol):
@@ -232,7 +246,7 @@ class ReticulumFetcher(Fetcher):
             if cls._reticulum_instance is None:
                 cls._reticulum_instance = self._rns.Reticulum(config_dir)
 
-    def _resolve_identity(self, destination_hash: str) -> IdentityProtocol:
+    def _resolve_identity(self, destination_hash: str) -> IdentityType:
         """Resolve a destination hash into a Reticulum Identity.
 
         Error Conditions:
@@ -250,7 +264,7 @@ class ReticulumFetcher(Fetcher):
             raise RuntimeError(f"Reticulum identity not found for {destination_hash}")
         return identity
 
-    def _await_link(self, link: LinkProtocol, resource_path: str) -> None:
+    def _await_link(self, link: LinkType, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
 
         Error Conditions:
@@ -266,7 +280,7 @@ class ReticulumFetcher(Fetcher):
             time.sleep(0.1)
         raise TimeoutError(f"Timed out establishing Reticulum link for {resource_path}")
 
-    def _await_request(self, receipt: RequestReceiptProtocol, resource_path: str) -> bytes:
+    def _await_request(self, receipt: RequestReceiptType, resource_path: str) -> bytes:
         """Wait for a Reticulum request receipt to complete.
 
         Error Conditions:
