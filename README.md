@@ -143,7 +143,7 @@ Publisher requirement: the identity hash must be stable. Use the same identity h
 
 ## Publisher sample creator app
 
-Want a buttery, hands-on starting point? The sample creator app will build a cozy, ready-to-publish starter show for you, then point you straight at the files so you can customize them. It’s made for publishers who want something they can edit immediately without fuss.
+Welcome to the Relay Room. This app spins up a ready-to-publish starter show for you, then points you straight at the files so you can remix them. It’s for publishers who want to get a first transmission on the air without any detours.
 
 How to run it:
 
@@ -153,12 +153,12 @@ How to run it:
 
 What it will do for you:
 
-- Ask for your NomadNet node ID and weave it into the sample pages + RSS.
-- Install the sample pages either at `~/.nomadnetwork/storage/pages` or under `~/.nomadnetwork/storage/pages/podcast`.
-- Refresh the sample files at `~/.nomadnetwork/storage/files/ExampleNomadCastPodcast`.
+- Ask for your NomadNet node ID and weave it into your show pages + RSS.
+- Install your show pages either at `~/.nomadnetwork/storage/pages` or under `~/.nomadnetwork/storage/pages/podcast`.
+- Refresh your show files at `~/.nomadnetwork/storage/files/ExampleNomadCastPodcast`.
 - Give you quick buttons to open the pages and media folders, so you can start editing right away.
 
-When you’re done, replace the placeholder show name, the RSS metadata, and the audio files with your real show. Your NomadNet node will host the updated files as soon as you save them.
+When you’re done, hand it off like a real broadcast: swap in your show name, update the RSS metadata, and drop in your audio files. Your NomadNet node will host the updated files as soon as you save them.
 
 ## Examples tour
 
