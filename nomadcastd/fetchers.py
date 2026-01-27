@@ -164,15 +164,15 @@ class ReticulumFetcher(Fetcher):
     def __init__(
         self,
         config_dir: str | None = None,
-        destination_app: str = "nomadnet",
-        destination_aspects: tuple[str, ...] = ("file",),
+        destination_app: str = "nomadnetwork",
+        destination_aspects: tuple[str, ...] = ("node",),
     ) -> None:
         """Initialize the Reticulum client.
 
         Inputs:
             config_dir: Reticulum configuration directory path from the daemon
                 config (reticulum_config_dir).
-            destination_app: Reticulum destination app name for file hosting.
+            destination_app: Reticulum destination app name for NomadNet nodes.
             destination_aspects: Destination aspects appended to the app name.
 
         Error Conditions:
@@ -397,14 +397,10 @@ class ReticulumFetcher(Fetcher):
         except ValueError as exc:
             self.logger.error("Destination hash is not valid hex: %s", destination_hash)
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
-        destination = self._recall_destination(destination_hash, destination_bytes)
-        if destination is not None:
-            return destination
-        self._ensure_path(destination_hash, destination_bytes)
-        destination = self._recall_destination(destination_hash, destination_bytes)
-        if destination is not None:
-            return destination
         destination = self._resolve_destination_from_identity(destination_hash, destination_bytes)
+        if destination is not None:
+            return destination
+        destination = self._recall_destination(destination_hash, destination_bytes)
         if destination is not None:
             return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
@@ -470,7 +466,7 @@ class ReticulumFetcher(Fetcher):
         MeshChat's NomadNet downloader treats the URL prefix as an identity
         hash and then derives the app/aspects destination from that identity.
         We mirror that behavior by constructing a destination from the recalled
-        identity when direct destination lookup fails.
+        identity.
         """
         identity_recall = getattr(self._rns.Identity, "recall", None)
         if not callable(identity_recall):
