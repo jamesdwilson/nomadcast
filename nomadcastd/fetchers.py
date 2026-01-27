@@ -274,6 +274,7 @@ class ReticulumFetcher(Fetcher):
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
+    _path_lookup_timeout_seconds = 15.0
     _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
 
     def _load_rns(self) -> RNSModule:
@@ -399,6 +400,10 @@ class ReticulumFetcher(Fetcher):
         destination = self._recall_destination(destination_hash, destination_bytes)
         if destination is not None:
             return destination
+        self._ensure_path(destination_hash, destination_bytes)
+        destination = self._recall_destination(destination_hash, destination_bytes)
+        if destination is not None:
+            return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
         raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
 
@@ -428,6 +433,29 @@ class ReticulumFetcher(Fetcher):
                 )
                 return destination
         return None
+
+    def _ensure_path(self, destination_hash: str, destination_bytes: bytes) -> None:
+        """Request a path to the destination if none is known."""
+        transport = getattr(self._rns, "Transport", None)
+        if transport is None:
+            self.logger.info("Reticulum Transport unavailable; cannot request path for %s", destination_hash)
+            return
+        has_path = getattr(transport, "has_path", None)
+        request_path = getattr(transport, "request_path", None)
+        if not callable(has_path) or not callable(request_path):
+            self.logger.info("Reticulum Transport path helpers unavailable for %s", destination_hash)
+            return
+        if has_path(destination_bytes):
+            return
+        self.logger.info("Requesting Reticulum path for destination %s", destination_hash)
+        request_path(destination_bytes)
+        deadline = time.monotonic() + self._path_lookup_timeout_seconds
+        while time.monotonic() < deadline:
+            if has_path(destination_bytes):
+                self.logger.info("Reticulum path discovered for destination %s", destination_hash)
+                return
+            time.sleep(0.1)
+        self.logger.warning("Reticulum path lookup timed out for destination %s", destination_hash)
 
     def _await_link(self, link: LinkType, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
