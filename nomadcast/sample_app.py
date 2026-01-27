@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from nomadcast.ui_tk_helper import TkHelperLauncher
+from nomadcast_sample.sample_creator import main as sample_creator_main
 
 
 def main() -> NoReturn:
-    TkHelperLauncher().launch()
+    sample_creator_main()
 
 
 if __name__ == "__main__":
