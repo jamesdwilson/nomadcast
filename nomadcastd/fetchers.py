@@ -367,7 +367,8 @@ class ReticulumFetcher(Fetcher):
                 except Exception as exc:
                     result_error = RuntimeError(
                         f"Reticulum response unsupported for {normalized_path}: {exc}"
-                    ) from exc
+                    )
+                    result_error.__cause__ = exc
             result_event.set()
 
         def on_download_failure(message: str) -> None:
