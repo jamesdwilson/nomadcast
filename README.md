@@ -47,8 +47,8 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 ## Contents
 
 - [What a normal listener does](#what-a-normal-listener-does)
-- [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
-- [Publisher sample creator app](#publisher-sample-creator-app)
+- [Publisher sample creator app (recommended for creators)](#publisher-sample-creator-app)
+- [For developers: manual publishing steps](#for-developers-manual-publishing-steps)
 - [Examples tour](#examples-tour)
 - [Community conventions](#community-conventions)
 - [How it works (more technical)](#how-it-works-more-technical)
@@ -71,7 +71,30 @@ Think of this like subscribing to any other podcast, just with one extra helper 
 
 After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and episode files available even when Reticulum is slow or offline by serving a local cache.
 
-## What a publisher does (v0, simplest path)
+## Publisher sample creator app
+
+Welcome to the Relay Room. This is the fastest way for podcast creators to get on the air with NomadCast. The app spins up a ready-to-publish starter show for you and points you straight at the files so you can remix them.
+
+How to run it:
+
+- From the repo, launch the standalone app:
+  - `bin/nomadcast-sample`
+  - Or: `python -m nomadcast_sample`
+
+What it will do for you:
+
+- Ask for your NomadNet node ID and weave it into your show pages + RSS.
+- Install your show pages either at `~/.nomadnetwork/storage/pages` or under `~/.nomadnetwork/storage/pages/podcast`.
+- Refresh your show files at `~/.nomadnetwork/storage/files/ExampleNomadCastPodcast`.
+- Give you quick buttons to open the pages and media folders, so you can start editing right away.
+
+When you’re done, hand it off like a real broadcast: swap in your show name, update the RSS metadata, and drop in your audio files. Your NomadNet node will host the updated files as soon as you save them.
+
+## For developers: manual publishing steps
+
+<details>
+<summary><strong>Manual NomadNet + RSS workflow (v0)</strong></summary>
+
 
 NomadCast does not generate RSS for you. You publish a normal podcast RSS file and normal episode files, and you host them on your existing Reticulum setup using Nomad Network, which already supports hosting pages and files.
 
@@ -141,24 +164,7 @@ Listeners paste that string into NomadCast. If you have a working MeshChat file 
 
 Publisher requirement: the identity hash must be stable. Use the same identity hash over time so the locator stays valid.
 
-## Publisher sample creator app
-
-Welcome to the Relay Room. This app spins up a ready-to-publish starter show for you, then points you straight at the files so you can remix them. It’s for publishers who want to get a first transmission on the air without any detours.
-
-How to run it:
-
-- From the repo, launch the standalone app:
-  - `bin/nomadcast-sample`
-  - Or: `python -m nomadcast_sample`
-
-What it will do for you:
-
-- Ask for your NomadNet node ID and weave it into your show pages + RSS.
-- Install your show pages either at `~/.nomadnetwork/storage/pages` or under `~/.nomadnetwork/storage/pages/podcast`.
-- Refresh your show files at `~/.nomadnetwork/storage/files/ExampleNomadCastPodcast`.
-- Give you quick buttons to open the pages and media folders, so you can start editing right away.
-
-When you’re done, hand it off like a real broadcast: swap in your show name, update the RSS metadata, and drop in your audio files. Your NomadNet node will host the updated files as soon as you save them.
+</details>
 
 ## Examples tour
 
