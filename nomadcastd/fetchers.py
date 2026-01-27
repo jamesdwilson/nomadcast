@@ -209,6 +209,14 @@ class ReticulumFetcher(Fetcher):
         Thread Safety:
             Link objects are per-call; this method is safe for concurrent use.
         """
+        self.logger.debug(
+            "fetch_bytes enter destination_hash=%s resource_path=%s config_dir=%s app=%s aspects=%s",
+            destination_hash,
+            resource_path,
+            self.config_dir,
+            self.destination_app,
+            self.destination_aspects,
+        )
         normalized_path = self._normalize_resource_path(resource_path)
         self.logger.info(
             "Reticulum fetch start destination=%s resource=%s normalized_resource=%s config_dir=%s app=%s aspects=%s",
@@ -269,15 +277,18 @@ class ReticulumFetcher(Fetcher):
         finally:
             link.teardown()
             self.logger.info("Reticulum link teardown complete resource=%s", normalized_path)
+            self.logger.debug("fetch_bytes exit destination_hash=%s resource_path=%s", destination_hash, resource_path)
 
     _reticulum_lock = threading.Lock()
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
+    _path_lookup_timeout_seconds = 15.0
     _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
 
     def _load_rns(self) -> RNSModule:
         """Load the Reticulum module, supporting multiple package layouts."""
+        self.logger.debug("load_rns enter")
         self.logger.info("Loading Reticulum module")
         rns_spec = importlib.util.find_spec("RNS")
         reticulum_spec = importlib.util.find_spec("reticulum")
@@ -324,10 +335,12 @@ class ReticulumFetcher(Fetcher):
                 "with `pip install rns` (module name 'RNS') and retry."
             ) from exc
         self.logger.info("Loaded Reticulum module from reticulum root")
+        self.logger.debug("load_rns exit (reticulum root)")
         return reticulum_module
 
     def _validate_rns_module(self, module: ModuleType | RNSModule) -> None:
         """Ensure the Reticulum module exposes required symbols."""
+        self.logger.debug("validate_rns_module enter module=%s", getattr(module, "__name__", type(module).__name__))
         self._populate_rns_module(module)
         missing = [name for name in self._required_rns_symbols if not hasattr(module, name)]
         if missing:
@@ -337,9 +350,11 @@ class ReticulumFetcher(Fetcher):
                 "Reticulum import does not expose required symbols "
                 f"({missing_list}). Ensure the Reticulum Python package is installed correctly."
             )
+        self.logger.debug("validate_rns_module exit module=%s", getattr(module, "__name__", type(module).__name__))
 
     def _populate_rns_module(self, module: ModuleType | RNSModule) -> None:
         """Attempt to load missing RNS symbols from known submodules."""
+        self.logger.debug("populate_rns_module enter module=%s", getattr(module, "__name__", type(module).__name__))
         for symbol in self._required_rns_symbols:
             if hasattr(module, symbol):
                 continue
@@ -350,6 +365,7 @@ class ReticulumFetcher(Fetcher):
                 if hasattr(submodule, symbol):
                     setattr(module, symbol, getattr(submodule, symbol))
                     break
+        self.logger.debug("populate_rns_module exit module=%s", getattr(module, "__name__", type(module).__name__))
 
     def _candidate_rns_modules(self, base: str, symbol: str) -> list[str]:
         candidates = [f"{base}.{symbol}"]
@@ -368,13 +384,16 @@ class ReticulumFetcher(Fetcher):
 
     def _safe_find_spec(self, module_name: str) -> importlib.machinery.ModuleSpec | None:
         """Return a module spec while tolerating missing parent packages."""
+        self.logger.debug("safe_find_spec enter module_name=%s", module_name)
         try:
             return importlib.util.find_spec(module_name)
         except ModuleNotFoundError:
+            self.logger.debug("safe_find_spec exit module_name=%s result=None", module_name)
             return None
 
     def _ensure_reticulum(self, config_dir: str | None) -> None:
         """Initialize the Reticulum singleton if needed."""
+        self.logger.debug("ensure_reticulum enter config_dir=%s", config_dir)
         cls = type(self)
         with cls._reticulum_lock:
             if cls._reticulum_instance is None:
@@ -383,6 +402,7 @@ class ReticulumFetcher(Fetcher):
                 self.logger.info("Reticulum initialized instance=%r", cls._reticulum_instance)
             else:
                 self.logger.info("Reusing Reticulum singleton instance=%r", cls._reticulum_instance)
+        self.logger.debug("ensure_reticulum exit")
 
     def _resolve_destination(self, destination_hash: str) -> DestinationType:
         """Resolve a destination hash into a Reticulum Destination.
@@ -391,6 +411,7 @@ class ReticulumFetcher(Fetcher):
             Raises ValueError for invalid hex and RuntimeError if the
             destination cannot be resolved.
         """
+        self.logger.debug("resolve_destination enter destination_hash=%s", destination_hash)
         try:
             destination_bytes = bytes.fromhex(destination_hash)
         except ValueError as exc:
@@ -398,6 +419,11 @@ class ReticulumFetcher(Fetcher):
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
         destination = self._recall_destination(destination_hash, destination_bytes)
         if destination is not None:
+            return destination
+        self._ensure_path(destination_hash, destination_bytes)
+        destination = self._recall_destination(destination_hash, destination_bytes)
+        if destination is not None:
+            self.logger.debug("resolve_destination exit destination_hash=%s resolved_after_path=True", destination_hash)
             return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
         raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
@@ -408,6 +434,7 @@ class ReticulumFetcher(Fetcher):
         destination_bytes: bytes,
     ) -> DestinationType | None:
         """Attempt to recall a Destination directly from its hash."""
+        self.logger.debug("recall_destination enter destination_hash=%s", destination_hash)
         destination_cls = self._rns.Destination
         recall = getattr(destination_cls, "recall", None)
         if callable(recall):
@@ -417,6 +444,7 @@ class ReticulumFetcher(Fetcher):
                     "Reticulum destination recalled from destination hash %s",
                     destination_hash,
                 )
+                self.logger.debug("recall_destination exit destination_hash=%s via=recall", destination_hash)
                 return destination
         from_hash = getattr(destination_cls, "from_hash", None)
         if callable(from_hash):
@@ -426,8 +454,74 @@ class ReticulumFetcher(Fetcher):
                     "Reticulum destination constructed from hash %s",
                     destination_hash,
                 )
+                self.logger.debug("recall_destination exit destination_hash=%s via=from_hash", destination_hash)
                 return destination
+        destination = self._destination_from_identity(destination_hash, destination_bytes)
+        if destination is not None:
+            self.logger.debug("recall_destination exit destination_hash=%s via=identity", destination_hash)
+            return destination
+        self.logger.debug("recall_destination exit destination_hash=%s result=None", destination_hash)
         return None
+
+    def _destination_from_identity(
+        self,
+        destination_hash: str,
+        destination_bytes: bytes,
+    ) -> DestinationType | None:
+        """Build a Destination using Identity recall when no destination helpers exist."""
+        self.logger.debug("destination_from_identity enter destination_hash=%s", destination_hash)
+        identity_cls = self._rns.Identity
+        recall = getattr(identity_cls, "recall", None)
+        if not callable(recall):
+            self.logger.info("Reticulum identity recall unavailable for %s", destination_hash)
+            self.logger.debug("destination_from_identity exit destination_hash=%s result=None", destination_hash)
+            return None
+        identity = recall(destination_bytes)
+        if identity is None:
+            identity = recall(destination_bytes, from_identity_hash=True)
+        if identity is None:
+            self.logger.info("Reticulum identity recall failed for %s", destination_hash)
+            self.logger.debug("destination_from_identity exit destination_hash=%s result=None", destination_hash)
+            return None
+        destination = self._rns.Destination(
+            identity,
+            self._rns.Destination.OUT,
+            self._rns.Destination.SINGLE,
+            self.destination_app,
+            *self.destination_aspects,
+        )
+        self.logger.info("Reticulum destination constructed from identity for %s", destination_hash)
+        self.logger.debug("destination_from_identity exit destination_hash=%s result=constructed", destination_hash)
+        return destination
+
+    def _ensure_path(self, destination_hash: str, destination_bytes: bytes) -> None:
+        """Request a path to the destination if none is known."""
+        self.logger.debug("ensure_path enter destination_hash=%s", destination_hash)
+        transport = getattr(self._rns, "Transport", None)
+        if transport is None:
+            self.logger.info("Reticulum Transport unavailable; cannot request path for %s", destination_hash)
+            self.logger.debug("ensure_path exit destination_hash=%s transport=None", destination_hash)
+            return
+        has_path = getattr(transport, "has_path", None)
+        request_path = getattr(transport, "request_path", None)
+        if not callable(has_path) or not callable(request_path):
+            self.logger.info("Reticulum Transport path helpers unavailable for %s", destination_hash)
+            self.logger.debug("ensure_path exit destination_hash=%s helpers_missing=True", destination_hash)
+            return
+        if has_path(destination_bytes):
+            self.logger.debug("ensure_path exit destination_hash=%s has_path=True", destination_hash)
+            return
+        self.logger.info("Requesting Reticulum path for destination %s", destination_hash)
+        request_path(destination_bytes)
+        deadline = time.monotonic() + self._path_lookup_timeout_seconds
+        while time.monotonic() < deadline:
+            if has_path(destination_bytes):
+                self.logger.info("Reticulum path discovered for destination %s", destination_hash)
+                self.logger.debug("ensure_path exit destination_hash=%s discovered=True", destination_hash)
+                return
+            time.sleep(0.1)
+        self.logger.warning("Reticulum path lookup timed out for destination %s", destination_hash)
+        self.logger.debug("ensure_path exit destination_hash=%s discovered=False", destination_hash)
 
     def _await_link(self, link: LinkType, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
@@ -436,6 +530,7 @@ class ReticulumFetcher(Fetcher):
             Raises RuntimeError if the link closes and TimeoutError if the
             link is not active before _link_timeout_seconds.
         """
+        self.logger.debug("await_link enter resource_path=%s link=%r", resource_path, link)
         deadline = time.monotonic() + self._link_timeout_seconds
         self.logger.info(
             "Awaiting Reticulum link resource=%s timeout=%s deadline=%s initial_status=%s",
@@ -458,6 +553,7 @@ class ReticulumFetcher(Fetcher):
             )
             if link.status == self._rns.Link.ACTIVE:
                 self.logger.info("Reticulum link active for %s", resource_path)
+                self.logger.debug("await_link exit resource_path=%s status=ACTIVE", resource_path)
                 return
             if link.status == self._rns.Link.CLOSED:
                 self.logger.error("Reticulum link closed while requesting %s", resource_path)
@@ -480,6 +576,7 @@ class ReticulumFetcher(Fetcher):
             Raises RuntimeError on FAILED or missing response and TimeoutError
             if the response is not ready before _request_timeout_seconds.
         """
+        self.logger.debug("await_request enter resource_path=%s receipt=%r", resource_path, receipt)
         deadline = time.monotonic() + self._request_timeout_seconds
         self.logger.info(
             "Awaiting Reticulum response resource=%s timeout=%s deadline=%s receipt=%r",
@@ -510,6 +607,7 @@ class ReticulumFetcher(Fetcher):
                     resource_path,
                     len(receipt.response),
                 )
+                self.logger.debug("await_request exit resource_path=%s status=READY", resource_path)
                 return bytes(receipt.response)
             if status == self._rns.RequestReceipt.FAILED:
                 self.logger.error("Reticulum request failed for %s", resource_path)
@@ -525,6 +623,7 @@ class ReticulumFetcher(Fetcher):
         slash (e.g. /file/<show>/feed.rss). Normalize to that format to align
         with external clients.
         """
+        self.logger.debug("normalize_resource_path enter resource_path=%s", resource_path)
         if not resource_path:
             self.logger.info("Normalize resource path: empty input")
             return resource_path
