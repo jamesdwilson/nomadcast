@@ -17,7 +17,7 @@ from nomadcast.sample_installer import (
 
 @dataclass(frozen=True)
 class TkHelperConfig:
-    title: str = "NomadCast Helper"
+    title: str = "NomadCast Sample Creator"
     window_size: str = "720x520"
 
 
@@ -63,21 +63,21 @@ class TkHelperLauncher:
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
-        header = ttk.Label(frame, text="Welcome to NomadCast ✨", font=("Segoe UI", 20, "bold"))
+        header = ttk.Label(frame, text="Let’s whip up a sample podcast ✨", font=("Segoe UI", 20, "bold"))
         header.grid(row=0, column=0, sticky="n", pady=(0, 12))
 
         subtitle = ttk.Label(
             frame,
             text=(
-                "Let’s set up a friendly sample podcast in your Nomad Network storage. "
-                "You can replace the existing sample later with your own show."
+                "We’ll tuck a warm, ready-to-share sample podcast into your Nomad Network storage. "
+                "Swap it out with your real show whenever you like."
             ),
             wraplength=640,
             justify="center",
         )
         subtitle.grid(row=1, column=0, sticky="n", pady=(0, 16))
 
-        identity_label = ttk.Label(frame, text="NomadNet node ID (used in links)")
+        identity_label = ttk.Label(frame, text="NomadNet node ID (used in links + feeds)")
         identity_label.grid(row=2, column=0, sticky="w")
 
         detected_identity = detect_nomadnet_identity() or PLACEHOLDER_IDENTITY
@@ -87,20 +87,20 @@ class TkHelperLauncher:
 
         identity_hint = ttk.Label(
             frame,
-            text="We’ll replace the placeholder ID in the sample pages and RSS feed.",
+            text="We’ll drizzle this ID into the sample pages and RSS feed.",
             foreground="#8ea3b7",
         )
         identity_hint.grid(row=4, column=0, sticky="w", pady=(0, 12))
 
-        choice_label = ttk.Label(frame, text="Where should we install the sample pages?")
+        choice_label = ttk.Label(frame, text="Where should we place the sample pages?")
         choice_label.grid(row=5, column=0, sticky="w")
 
         location_var = tk.StringVar(value="replace_pages")
         replace_button = ttk.Radiobutton(
             frame,
             text=(
-                "Replace existing pages at ~/.nomadnetwork/storage/pages "
-                "(also overwrites sample files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "Replace the pages at ~/.nomadnetwork/storage/pages "
+                "(also refreshes sample files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="replace_pages",
             variable=location_var,
@@ -110,7 +110,7 @@ class TkHelperLauncher:
         subdir_button = ttk.Radiobutton(
             frame,
             text=(
-                "Install pages under ~/.nomadnetwork/storage/pages/podcast "
+                "Nest pages under ~/.nomadnetwork/storage/pages/podcast "
                 "(sample files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="podcast_pages",
@@ -118,7 +118,7 @@ class TkHelperLauncher:
         )
         subdir_button.grid(row=7, column=0, sticky="w", pady=(0, 16))
 
-        status_var = tk.StringVar(value="Ready to install the sample podcast.")
+        status_var = tk.StringVar(value="Ready when you are. Let’s make something lovely.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
         status_label.grid(row=8, column=0, sticky="w", pady=(0, 12))
 
@@ -131,10 +131,10 @@ class TkHelperLauncher:
         def ensure_identity() -> str | None:
             identity = identity_var.get().strip()
             if not identity:
-                update_status("Please enter your NomadNet node ID.", is_error=True)
+                update_status("Pop in your NomadNet node ID so links work.", is_error=True)
                 return None
             if len(identity) < 16:
-                update_status("That ID looks too short. Please double-check it.", is_error=True)
+                update_status("That ID looks a bit short. Could you double-check it?", is_error=True)
                 return None
             return identity
 
@@ -148,23 +148,23 @@ class TkHelperLauncher:
             replace_existing = location_choice == "replace_pages"
             if replace_existing:
                 confirm = messagebox.askyesno(
-                    title="Replace existing sample?",
+                    title="Replace existing pages?",
                     message=(
-                        "This will replace the existing NomadNet pages at "
-                        "~/.nomadnetwork/storage/pages and overwrite the sample "
+                        "We’ll replace the NomadNet pages at "
+                        "~/.nomadnetwork/storage/pages and refresh the sample "
                         "files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast.\n\n"
-                        "Continue?"
+                        "Sound good?"
                     ),
                     parent=root,
                 )
                 if not confirm:
-                    update_status("Install cancelled. No changes made.")
+                    update_status("All good — no changes made.")
                     return
                 pages_path = storage_root / "pages"
             elif location_choice == "podcast_pages":
                 pages_path = storage_root / "pages" / "podcast"
             else:
-                update_status("Please choose an install location.", is_error=True)
+                update_status("Please pick a landing spot for the pages.", is_error=True)
                 return
 
             try:
@@ -175,13 +175,13 @@ class TkHelperLauncher:
                     replace_existing=replace_existing,
                 )
             except OSError as exc:
-                update_status(f"Install failed: {exc}", is_error=True)
+                update_status(f"Oops, the install hiccuped: {exc}", is_error=True)
                 return
 
             open_pages_button.state(["!disabled"])
             open_media_button.state(["!disabled"])
             update_status(
-                f"Sample installed. Pages: {install_result.pages_path} | "
+                f"Sample is ready! Pages: {install_result.pages_path} | "
                 f"Media: {install_result.media_path}"
             )
 
@@ -207,11 +207,11 @@ class TkHelperLauncher:
         actions_row = ttk.Frame(frame)
         actions_row.grid(row=9, column=0, sticky="w", pady=(4, 16))
 
-        install_button = ttk.Button(actions_row, text="Install sample", command=handle_install)
+        install_button = ttk.Button(actions_row, text="Create sample", command=handle_install)
         install_button.configure(default="active")
         install_button.grid(row=0, column=0, sticky="w")
 
-        guide_button = ttk.Button(actions_row, text="Page hosting guide", command=handle_open_guide)
+        guide_button = ttk.Button(actions_row, text="NomadNet page hosting guide", command=handle_open_guide)
         guide_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         links_row = ttk.Frame(frame)
@@ -227,7 +227,7 @@ class TkHelperLauncher:
 
         footer = ttk.Label(
             frame,
-            text="Tip: Replace the sample later with your own show files and RSS feed.",
+            text="Tip: When you’re ready, swap the sample for your real show files and RSS feed.",
             foreground="#8ea3b7",
         )
         footer.grid(row=11, column=0, sticky="w", pady=(16, 0))
