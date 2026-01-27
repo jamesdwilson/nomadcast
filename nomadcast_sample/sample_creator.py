@@ -27,7 +27,7 @@ class SampleCreatorConfig:
     """Configuration for the sample creator window."""
 
     title: str = "NomadCast Relay Room"
-    window_size: str = "720x520"
+    window_size: str = "760x640"
 
 
 class SampleCreatorApp:
@@ -77,6 +77,19 @@ class SampleCreatorApp:
             root.iconphoto(True, icon_image)
             # Keep a reference to avoid the Tk image being garbage collected.
             root.icon_image = icon_image
+            banner_logo = icon_image.zoom(2, 2)
+            root.banner_logo = banner_logo
+        else:
+            banner_logo = None
+
+        root.update_idletasks()
+        root.deiconify()
+        root.lift()
+        try:
+            root.attributes("-topmost", True)
+            root.after(150, lambda: root.attributes("-topmost", False))
+        except tk.TclError:
+            pass
 
         # --- Layout scaffolding ---------------------------------------------------
         root.columnconfigure(0, weight=1)
@@ -86,12 +99,30 @@ class SampleCreatorApp:
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
-        # --- Headline copy --------------------------------------------------------
-        header = ttk.Label(frame, text="FIRST TRANSMISSION STARTS HERE", font=("Segoe UI", 20, "bold"))
-        header.grid(row=0, column=0, sticky="n", pady=(0, 12))
+        header_frame = ttk.Frame(frame)
+        header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        header_frame.columnconfigure(0, weight=1)
+
+        if banner_logo is not None:
+            logo_label = ttk.Label(header_frame, image=banner_logo)
+            logo_label.grid(row=0, column=0, sticky="n", pady=(0, 8))
+
+        banner_label = tk.Label(
+            header_frame,
+            text="NOMADCAST SAMPLE CREATOR",
+            font=("Segoe UI", 16, "bold"),
+            background="#1b2230",
+            foreground="#f5f7fa",
+            padx=12,
+            pady=6,
+        )
+        banner_label.grid(row=1, column=0, sticky="ew")
+
+        header = ttk.Label(frame, text="FIRST TRANSMISSION STARTS HERE", font=("Segoe UI", 18, "bold"))
+        header.grid(row=1, column=0, sticky="n", pady=(12, 10))
 
         subhead = ttk.Label(frame, text="Radio YOU is on the air.", font=("Segoe UI", 12))
-        subhead.grid(row=1, column=0, sticky="n", pady=(0, 10))
+        subhead.grid(row=2, column=0, sticky="n", pady=(0, 10))
 
         subtitle = ttk.Label(
             frame,
@@ -102,56 +133,73 @@ class SampleCreatorApp:
             wraplength=640,
             justify="center",
         )
-        subtitle.grid(row=2, column=0, sticky="n", pady=(0, 16))
+        subtitle.grid(row=3, column=0, sticky="n", pady=(0, 16))
 
         # --- Identity input -------------------------------------------------------
         identity_label = ttk.Label(frame, text="NomadNet node ID (used in links + feeds)")
-        identity_label.grid(row=3, column=0, sticky="w")
+        identity_label.grid(row=4, column=0, sticky="w")
 
         # Pre-fill with any identity we can detect; fall back to the placeholder.
         detected_identity = detect_nomadnet_identity() or PLACEHOLDER_IDENTITY
         identity_var = tk.StringVar(value=detected_identity)
         identity_input = ttk.Entry(frame, textvariable=identity_var)
-        identity_input.grid(row=4, column=0, sticky="ew", pady=(4, 12))
+        identity_input.grid(row=5, column=0, sticky="ew", pady=(4, 12))
 
         identity_hint = ttk.Label(
             frame,
             text="We’ll thread this ID into the Relay Room pages and RSS feed.",
             foreground="#8ea3b7",
         )
-        identity_hint.grid(row=5, column=0, sticky="w", pady=(0, 12))
+        identity_hint.grid(row=6, column=0, sticky="w", pady=(0, 12))
 
         # --- Page placement choices ----------------------------------------------
         choice_label = ttk.Label(frame, text="Where should we place the Relay Room pages?")
-        choice_label.grid(row=6, column=0, sticky="w")
+        choice_label.grid(row=7, column=0, sticky="w")
 
         location_var = tk.StringVar(value="replace_pages")
         replace_button = ttk.Radiobutton(
             frame,
             text=(
-                "Replace the pages at ~/.nomadnetwork/storage/pages "
-                "(also refreshes Relay Room files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "Replace the pages at ~/.nomadnetwork/storage/pages"
             ),
             value="replace_pages",
             variable=location_var,
         )
-        replace_button.grid(row=7, column=0, sticky="w", pady=(4, 2))
+        replace_button.grid(row=8, column=0, sticky="w", pady=(4, 2))
 
         subdir_button = ttk.Radiobutton(
             frame,
             text=(
-                "Nest pages under ~/.nomadnetwork/storage/pages/podcast "
-                "(Relay Room files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "Create new folder at ~/.nomadnetwork/storage/pages/podcast"
             ),
             value="podcast_pages",
             variable=location_var,
         )
-        subdir_button.grid(row=8, column=0, sticky="w", pady=(0, 16))
+        subdir_button.grid(row=9, column=0, sticky="w", pady=(0, 16))
+
+        pending_frame = ttk.Frame(frame)
+        pending_frame.grid(row=10, column=0, sticky="w", pady=(0, 12))
+        pending_frame.columnconfigure(0, weight=1)
+        pending_frame.grid_remove()
+
+        pending_label = ttk.Label(pending_frame, text="Pending actions")
+        pending_label.grid(row=0, column=0, sticky="w")
+
+        pending_list = tk.Listbox(
+            pending_frame,
+            height=4,
+            width=62,
+            background="#101720",
+            foreground="#f5f7fa",
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        pending_list.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
         # --- Status line ----------------------------------------------------------
         status_var = tk.StringVar(value="Ready when you are. Let’s bring the Relay Room online.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
-        status_label.grid(row=9, column=0, sticky="w", pady=(0, 12))
+        status_label.grid(row=11, column=0, sticky="w", pady=(0, 12))
 
         # Remember the install result so we can open the folders afterward.
         install_result: SampleInstallResult | None = None
@@ -160,6 +208,21 @@ class SampleCreatorApp:
             """Update the status message with optional error styling."""
             status_var.set(message)
             status_label.configure(foreground="#f28072" if is_error else "#b8c7d6")
+
+        def show_pending_actions() -> None:
+            pending_list.delete(0, tk.END)
+            pending_actions = [
+                "Create or update the Relay Room pages.",
+                "Copy starter media files into the Relay Room.",
+                "Write feed settings with your NomadNet node ID.",
+            ]
+            for action in pending_actions:
+                pending_list.insert(tk.END, f"• {action}")
+            pending_frame.grid()
+
+        def clear_pending_actions() -> None:
+            pending_list.delete(0, tk.END)
+            pending_frame.grid_remove()
 
         def ensure_identity() -> str | None:
             """Validate the identity input and return the trimmed value."""
@@ -175,8 +238,10 @@ class SampleCreatorApp:
         def handle_install() -> None:
             """Install the sample content based on the selected options."""
             nonlocal install_result
+            show_pending_actions()
             identity = ensure_identity()
             if not identity:
+                clear_pending_actions()
                 return
 
             # Resolve the NomadNet storage root and the user's placement choice.
@@ -198,12 +263,14 @@ class SampleCreatorApp:
                 )
                 if not confirm:
                     update_status("All good — no changes made.")
+                    clear_pending_actions()
                     return
                 pages_path = storage_root / "pages"
             elif location_choice == "podcast_pages":
                 pages_path = storage_root / "pages" / "podcast"
             else:
                 update_status("Please pick a landing spot for the pages.", is_error=True)
+                clear_pending_actions()
                 return
 
             # Run the installer and handle any file-system errors gracefully.
@@ -216,19 +283,24 @@ class SampleCreatorApp:
                 )
             except OSError as exc:
                 update_status(f"Oops, the install hiccuped: {exc}", is_error=True)
+                clear_pending_actions()
                 return
 
-            # Unlock the "open folder" buttons once we have real paths.
-            open_pages_button.state(["!disabled"])
-            open_media_button.state(["!disabled"])
+            clear_pending_actions()
             update_status(
                 f"Relay Room is ready! Pages: {install_result.pages_path} | "
                 f"Media: {install_result.media_path}"
+            )
+            messagebox.showinfo(
+                title="Relay Room is ready",
+                message="Relay Room files are staged. Open the pages or media folders to continue.",
+                parent=root,
             )
 
         def handle_open_pages() -> None:
             """Open the generated pages folder in the OS file browser."""
             if not install_result:
+                update_status("Run Begin Transmission first to set up pages.", is_error=True)
                 return
             try:
                 open_in_file_browser(install_result.pages_path)
@@ -238,6 +310,7 @@ class SampleCreatorApp:
         def handle_open_media() -> None:
             """Open the generated media folder in the OS file browser."""
             if not install_result:
+                update_status("Run Begin Transmission first to set up media.", is_error=True)
                 return
             try:
                 open_in_file_browser(install_result.media_path)
@@ -250,7 +323,7 @@ class SampleCreatorApp:
 
         # --- Action buttons -------------------------------------------------------
         actions_row = ttk.Frame(frame)
-        actions_row.grid(row=10, column=0, sticky="w", pady=(4, 16))
+        actions_row.grid(row=12, column=0, sticky="w", pady=(4, 16))
 
         install_button = ttk.Button(actions_row, text="BEGIN TRANSMISSION", command=handle_install)
         install_button.configure(default="active")
@@ -261,28 +334,14 @@ class SampleCreatorApp:
 
         # --- Folder shortcuts -----------------------------------------------------
         links_row = ttk.Frame(frame)
-        links_row.grid(row=11, column=0, sticky="w")
+        links_row.grid(row=13, column=0, sticky="w")
 
         open_pages_button = ttk.Button(links_row, text="📁 Open Pages root", command=handle_open_pages)
-        open_pages_button.state(["disabled"])
         open_pages_button.grid(row=0, column=0, sticky="w")
 
         open_media_button = ttk.Button(links_row, text="📁 Open Media root", command=handle_open_media)
-        open_media_button.state(["disabled"])
         open_media_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
-        # --- Footer copy ----------------------------------------------------------
-        footer = ttk.Label(
-            frame,
-            text=(
-                "Tip: You’ve made it to the Relay Room — now you can swap in fresh episodes and update the RSS feed "
-                "whenever your broadcast needs shift."
-            ),
-            foreground="#8ea3b7",
-        )
-        footer.grid(row=12, column=0, sticky="w", pady=(16, 0))
-
-        # --- Final polish ---------------------------------------------------------
         self._center_window(root)
         identity_input.focus()
         root.bind("<Return>", lambda event: install_button.invoke())
