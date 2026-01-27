@@ -13,7 +13,13 @@ from typing import Iterable
 from urllib.parse import quote
 from xml.etree import ElementTree
 
-from nomadcastd.parsing import parse_nomadcast_media_url
+from nomadcastd.parsing import (
+    NOMADCAST_PREFIX,
+    NOMADCAST_URL_PREFIX,
+    encode_show_path,
+    parse_nomadcast_media_url,
+    parse_subscription_uri,
+)
 
 
 @dataclass
@@ -113,6 +119,7 @@ def rewrite_rss(
             channel.remove(item)
         for item in allowed_items:
             channel.append(item)
+    _rewrite_nomadcast_links(root, listen_host, listen_port)
     return ElementTree.tostring(root, encoding="utf-8")
 
 
@@ -126,3 +133,34 @@ def extract_nomadcast_enclosures(items: Iterable[RssItem]) -> list[tuple[RssItem
                 continue
             enclosures.append((item, filename))
     return enclosures
+
+
+def _rewrite_nomadcast_links(
+    root: ElementTree.Element,
+    listen_host: str,
+    listen_port: int,
+) -> None:
+    for element in root.iter():
+        if element.text:
+            element.text = _rewrite_nomadcast_value(element.text, listen_host, listen_port)
+        for key, value in element.attrib.items():
+            element.attrib[key] = _rewrite_nomadcast_value(value, listen_host, listen_port)
+
+
+def _rewrite_nomadcast_value(value: str, listen_host: str, listen_port: int) -> str:
+    if not value.startswith((NOMADCAST_PREFIX, NOMADCAST_URL_PREFIX)):
+        return value
+    try:
+        destination_hash, show_name, filename = parse_nomadcast_media_url(value)
+    except ValueError:
+        pass
+    else:
+        show_path = encode_show_path(destination_hash, show_name)
+        encoded_filename = quote(filename, safe="")
+        return f"http://{listen_host}:{listen_port}/media/{show_path}/{encoded_filename}"
+    try:
+        subscription = parse_subscription_uri(value)
+    except ValueError:
+        return value
+    show_path = encode_show_path(subscription.destination_hash, subscription.show_name)
+    return f"http://{listen_host}:{listen_port}/feeds/{show_path}"
