@@ -17,7 +17,6 @@ NOMADCAST_URL_PREFIX = "nomadcast://"
 MEDIA_PREFIX = "/media/"
 MIN_DEST_HASH_LEN = 32
 DEST_HASH_RE = re.compile(r"^[0-9a-fA-F]+$")
-FILENAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 @dataclass(frozen=True)
@@ -107,6 +106,7 @@ def parse_nomadcast_media_url(url: str) -> tuple[str, str, str]:
     if MEDIA_PREFIX not in url:
         raise ValueError("Not a nomadcast media URL")
     prefix, filename = url.split(MEDIA_PREFIX, 1)
+    filename = unquote(filename)
     body = _strip_nomadcast_prefix(prefix)
     if ":" not in body:
         raise ValueError("Media URL must include destination hash and show name")
@@ -126,4 +126,6 @@ def sanitize_filename(filename: str) -> bool:
         return False
     if "/" in filename or "\\" in filename or ".." in filename:
         return False
-    return bool(FILENAME_RE.match(filename))
+    if not filename.isprintable():
+        return False
+    return True

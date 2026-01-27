@@ -10,6 +10,7 @@ advertised (README v0 cache policy).
 import email.utils
 from dataclasses import dataclass
 from typing import Iterable
+from urllib.parse import quote
 from xml.etree import ElementTree
 
 from nomadcastd.parsing import parse_nomadcast_media_url
@@ -101,9 +102,10 @@ def rewrite_rss(
         if include:
             allowed_items.append(item.element)
             for enclosure, filename in nomadcast_enclosures:
+                encoded_filename = quote(filename, safe="")
                 enclosure.set(
                     "url",
-                    f"http://{listen_host}:{listen_port}/media/{show_path}/{filename}",
+                    f"http://{listen_host}:{listen_port}/media/{show_path}/{encoded_filename}",
                 )
     channel = root.find("channel")
     if channel is not None:
