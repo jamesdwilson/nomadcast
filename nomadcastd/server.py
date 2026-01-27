@@ -13,7 +13,7 @@ import os
 import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from nomadcastd.daemon import NomadCastDaemon
 from nomadcastd.parsing import decode_show_path, sanitize_filename
@@ -115,7 +115,8 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
         if len(parts) < 4:
             self.send_error(HTTPStatus.NOT_FOUND, "Missing show path or filename")
             return
-        show_path, filename = parts[2], parts[3]
+        show_path, raw_filename = parts[2], parts[3]
+        filename = unquote(raw_filename)
         if not sanitize_filename(filename):
             self.send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
             return
