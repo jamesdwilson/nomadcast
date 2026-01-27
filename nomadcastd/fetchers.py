@@ -404,6 +404,9 @@ class ReticulumFetcher(Fetcher):
         destination = self._recall_destination(destination_hash, destination_bytes)
         if destination is not None:
             return destination
+        destination = self._resolve_destination_from_identity(destination_hash, destination_bytes)
+        if destination is not None:
+            return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
         raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
 
@@ -456,6 +459,44 @@ class ReticulumFetcher(Fetcher):
                 return
             time.sleep(0.1)
         self.logger.warning("Reticulum path lookup timed out for destination %s", destination_hash)
+
+    def _resolve_destination_from_identity(
+        self,
+        destination_hash: str,
+        destination_bytes: bytes,
+    ) -> DestinationType | None:
+        """Attempt to build a Destination from a recalled Identity.
+
+        MeshChat's NomadNet downloader treats the URL prefix as an identity
+        hash and then derives the app/aspects destination from that identity.
+        We mirror that behavior by constructing a destination from the recalled
+        identity when direct destination lookup fails.
+        """
+        identity_recall = getattr(self._rns.Identity, "recall", None)
+        if not callable(identity_recall):
+            return None
+        identity = identity_recall(destination_bytes)
+        if identity is None:
+            try:
+                identity = identity_recall(destination_bytes, from_identity_hash=True)
+            except TypeError:
+                identity = None
+        if identity is None:
+            return None
+        destination = self._rns.Destination(
+            identity,
+            self._rns.Destination.OUT,
+            self._rns.Destination.SINGLE,
+            self.destination_app,
+            *self.destination_aspects,
+        )
+        self.logger.info(
+            "Reticulum destination constructed from identity hash %s app=%s aspects=%s",
+            destination_hash,
+            self.destination_app,
+            self.destination_aspects,
+        )
+        return destination
 
     def _await_link(self, link: LinkType, resource_path: str) -> None:
         """Wait for a Reticulum link to become ACTIVE.
