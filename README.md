@@ -48,6 +48,7 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 
 - [What a normal listener does](#what-a-normal-listener-does)
 - [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
+- [Publisher sample creator app](#publisher-sample-creator-app)
 - [Examples tour](#examples-tour)
 - [Community conventions](#community-conventions)
 - [How it works (more technical)](#how-it-works-more-technical)
@@ -139,6 +140,25 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
 Listeners paste that string into NomadCast. If you have a working MeshChat file link, the hash before `:/file/...` is the identity hash to use.
 
 Publisher requirement: the identity hash must be stable. Use the same identity hash over time so the locator stays valid.
+
+## Publisher sample creator app
+
+Want a buttery, hands-on starting point? The sample creator app will build a cozy, ready-to-publish starter show for you, then point you straight at the files so you can customize them. It’s made for publishers who want something they can edit immediately without fuss.
+
+How to run it:
+
+- From the repo, launch the standalone app:
+  - `bin/nomadcast-sample`
+  - Or: `python -m nomadcast.sample_app`
+
+What it will do for you:
+
+- Ask for your NomadNet node ID and weave it into the sample pages + RSS.
+- Install the sample pages either at `~/.nomadnetwork/storage/pages` or under `~/.nomadnetwork/storage/pages/podcast`.
+- Refresh the sample files at `~/.nomadnetwork/storage/files/ExampleNomadCastPodcast`.
+- Give you quick buttons to open the pages and media folders, so you can start editing right away.
+
+When you’re done, replace the placeholder show name, the RSS metadata, and the audio files with your real show. Your NomadNet node will host the updated files as soon as you save them.
 
 ## Examples tour
 
