@@ -33,22 +33,42 @@ def nomadnet_storage_root() -> Path:
     return Path.home() / ".nomadnetwork" / "storage"
 
 
-def detect_nomadnet_identity() -> str | None:
-    """Attempt to discover a NomadNet identity hash from common files."""
-    # NomadNet and Reticulum configurations store identity data in a handful of
-    # predictable locations. We scan those paths in priority order and return
-    # the first identity hash we can parse.
+@dataclass(frozen=True)
+class NomadNetIdentityDetection:
+    """Resolved NomadNet identity hash plus its origin path."""
+
+    identity: str
+    source_path: Path
+
+
+def detect_nomadnet_identity() -> NomadNetIdentityDetection | None:
+    """Attempt to discover a NomadNet identity hash from known locations."""
+    config_dir = nomadnet_config_dir()
+    identity_path = config_dir / "storage" / "identity"
+    identity = _extract_identity_from_rns(identity_path)
+    if identity:
+        return NomadNetIdentityDetection(identity=identity, source_path=identity_path)
     candidates = [
-        Path.home() / ".nomadnetwork" / "config",
-        Path.home() / ".nomadnetwork" / "identity",
-        Path.home() / ".nomadnetwork" / "storage" / "identity",
-        Path.home() / ".nomadnetwork" / "node_identity",
+        config_dir / "config",
+        config_dir / "identity",
+        config_dir / "node_identity",
     ]
     for candidate in candidates:
         identity = _try_identity_from_path(candidate)
         if identity:
-            return identity
+            return NomadNetIdentityDetection(identity=identity, source_path=candidate)
     return None
+
+
+def nomadnet_config_dir() -> Path:
+    """Resolve NomadNet's config directory using NomadNet's precedence rules."""
+    etc_config = Path("/etc/nomadnetwork/config")
+    if etc_config.is_file():
+        return etc_config.parent
+    xdg_config = Path.home() / ".config" / "nomadnetwork" / "config"
+    if xdg_config.is_file():
+        return xdg_config.parent
+    return Path.home() / ".nomadnetwork"
 
 
 def _try_identity_from_path(path: Path) -> str | None:
