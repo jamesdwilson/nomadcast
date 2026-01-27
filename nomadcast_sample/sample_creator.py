@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-"""Standalone NomadCast sample creator app."""
+"""Standalone NomadCast sample creator app.
+
+This module provides a focused Tkinter application that installs the sample
+NomadCast "Relay Room" content into a creator's NomadNet storage. It is kept
+separate from the main UI so that creator tooling can evolve independently.
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
 
-from nomadcast.sample_installer import (
+from nomadcast_sample.sample_installer import (
     NOMADNET_GUIDE_URL,
     PLACEHOLDER_IDENTITY,
     SampleInstallResult,
@@ -19,15 +24,22 @@ from nomadcast.sample_installer import (
 
 @dataclass(frozen=True)
 class SampleCreatorConfig:
+    """Configuration for the sample creator window."""
+
     title: str = "NomadCast Relay Room"
     window_size: str = "720x520"
 
 
 class SampleCreatorApp:
+    """Tkinter launcher for the NomadCast sample creator experience."""
+
     def __init__(self, config: SampleCreatorConfig | None = None) -> None:
+        """Initialize the app with an optional UI configuration."""
         self._config = config or SampleCreatorConfig()
 
     def _center_window(self, root: "tk.Tk") -> None:
+        """Center the Tkinter window on the active screen."""
+        # Measure the window and screen so we can calculate a centered geometry.
         root.update_idletasks()
         window_width = root.winfo_width()
         window_height = root.winfo_height()
@@ -38,26 +50,35 @@ class SampleCreatorApp:
         root.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
 
     def launch(self) -> None:
+        """Launch the sample creator UI and enter the Tkinter event loop."""
+        # Import Tkinter lazily so that simply importing the module doesn't
+        # require a GUI environment.
         import tkinter as tk
         from tkinter import messagebox, ttk
         import webbrowser
 
+        # --- Window + theme setup -------------------------------------------------
         root = tk.Tk()
         root.tk.call("tk", "appname", "NomadCast")
         try:
+            # macOS-specific app name for the menu bar and Dock.
             root.tk.call("tk::mac::SetApplicationName", "NomadCast")
         except tk.TclError:
+            # Ignore if the Tk build doesn't support the call.
             pass
         root.title(self._config.title)
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
 
+        # Use the shared NomadCast icon if it's available in the repo tree.
         icon_path = Path(__file__).resolve().parents[2] / "assets" / "nomadcast-logo.png"
         if icon_path.exists():
             icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, icon_image)
+            # Keep a reference to avoid the Tk image being garbage collected.
             root.icon_image = icon_image
 
+        # --- Layout scaffolding ---------------------------------------------------
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
@@ -65,6 +86,7 @@ class SampleCreatorApp:
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
+        # --- Headline copy --------------------------------------------------------
         header = ttk.Label(frame, text="FIRST TRANSMISSION STARTS HERE", font=("Segoe UI", 20, "bold"))
         header.grid(row=0, column=0, sticky="n", pady=(0, 12))
 
@@ -82,9 +104,11 @@ class SampleCreatorApp:
         )
         subtitle.grid(row=2, column=0, sticky="n", pady=(0, 16))
 
+        # --- Identity input -------------------------------------------------------
         identity_label = ttk.Label(frame, text="NomadNet node ID (used in links + feeds)")
         identity_label.grid(row=3, column=0, sticky="w")
 
+        # Pre-fill with any identity we can detect; fall back to the placeholder.
         detected_identity = detect_nomadnet_identity() or PLACEHOLDER_IDENTITY
         identity_var = tk.StringVar(value=detected_identity)
         identity_input = ttk.Entry(frame, textvariable=identity_var)
@@ -97,6 +121,7 @@ class SampleCreatorApp:
         )
         identity_hint.grid(row=5, column=0, sticky="w", pady=(0, 12))
 
+        # --- Page placement choices ----------------------------------------------
         choice_label = ttk.Label(frame, text="Where should we place the Relay Room pages?")
         choice_label.grid(row=6, column=0, sticky="w")
 
@@ -123,17 +148,21 @@ class SampleCreatorApp:
         )
         subdir_button.grid(row=8, column=0, sticky="w", pady=(0, 16))
 
+        # --- Status line ----------------------------------------------------------
         status_var = tk.StringVar(value="Ready when you are. Let’s bring the Relay Room online.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
         status_label.grid(row=9, column=0, sticky="w", pady=(0, 12))
 
+        # Remember the install result so we can open the folders afterward.
         install_result: SampleInstallResult | None = None
 
         def update_status(message: str, *, is_error: bool = False) -> None:
+            """Update the status message with optional error styling."""
             status_var.set(message)
             status_label.configure(foreground="#f28072" if is_error else "#b8c7d6")
 
         def ensure_identity() -> str | None:
+            """Validate the identity input and return the trimmed value."""
             identity = identity_var.get().strip()
             if not identity:
                 update_status("Pop in your NomadNet node ID so links work.", is_error=True)
@@ -144,14 +173,19 @@ class SampleCreatorApp:
             return identity
 
         def handle_install() -> None:
+            """Install the sample content based on the selected options."""
             nonlocal install_result
             identity = ensure_identity()
             if not identity:
                 return
+
+            # Resolve the NomadNet storage root and the user's placement choice.
             storage_root = nomadnet_storage_root()
             location_choice = location_var.get()
             replace_existing = location_choice == "replace_pages"
+
             if replace_existing:
+                # Ask for confirmation before wiping the existing pages directory.
                 confirm = messagebox.askyesno(
                     title="Replace existing pages?",
                     message=(
@@ -172,6 +206,7 @@ class SampleCreatorApp:
                 update_status("Please pick a landing spot for the pages.", is_error=True)
                 return
 
+            # Run the installer and handle any file-system errors gracefully.
             try:
                 install_result = install_sample(
                     storage_root=storage_root,
@@ -183,6 +218,7 @@ class SampleCreatorApp:
                 update_status(f"Oops, the install hiccuped: {exc}", is_error=True)
                 return
 
+            # Unlock the "open folder" buttons once we have real paths.
             open_pages_button.state(["!disabled"])
             open_media_button.state(["!disabled"])
             update_status(
@@ -191,6 +227,7 @@ class SampleCreatorApp:
             )
 
         def handle_open_pages() -> None:
+            """Open the generated pages folder in the OS file browser."""
             if not install_result:
                 return
             try:
@@ -199,6 +236,7 @@ class SampleCreatorApp:
                 update_status(f"Could not open pages: {exc}", is_error=True)
 
         def handle_open_media() -> None:
+            """Open the generated media folder in the OS file browser."""
             if not install_result:
                 return
             try:
@@ -207,8 +245,10 @@ class SampleCreatorApp:
                 update_status(f"Could not open media: {exc}", is_error=True)
 
         def handle_open_guide() -> None:
+            """Launch the NomadNet hosting guide in a browser."""
             webbrowser.open(NOMADNET_GUIDE_URL)
 
+        # --- Action buttons -------------------------------------------------------
         actions_row = ttk.Frame(frame)
         actions_row.grid(row=10, column=0, sticky="w", pady=(4, 16))
 
@@ -219,6 +259,7 @@ class SampleCreatorApp:
         guide_button = ttk.Button(actions_row, text="NomadNet page hosting guide", command=handle_open_guide)
         guide_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
+        # --- Folder shortcuts -----------------------------------------------------
         links_row = ttk.Frame(frame)
         links_row.grid(row=11, column=0, sticky="w")
 
@@ -230,6 +271,7 @@ class SampleCreatorApp:
         open_media_button.state(["disabled"])
         open_media_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
+        # --- Footer copy ----------------------------------------------------------
         footer = ttk.Label(
             frame,
             text=(
@@ -240,6 +282,7 @@ class SampleCreatorApp:
         )
         footer.grid(row=12, column=0, sticky="w", pady=(16, 0))
 
+        # --- Final polish ---------------------------------------------------------
         self._center_window(root)
         identity_input.focus()
         root.bind("<Return>", lambda event: install_button.invoke())
@@ -247,6 +290,7 @@ class SampleCreatorApp:
 
 
 def main() -> NoReturn:
+    """Entry point for launching the sample creator app."""
     SampleCreatorApp().launch()
 
 
