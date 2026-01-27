@@ -31,8 +31,8 @@ uri =
 
 [reticulum]
 config_dir = ~/.reticulum
-destination_app = nomadnet
-destination_aspects = file
+destination_app = nomadnetwork
+destination_aspects = node
 """
 
 
@@ -241,14 +241,14 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
         reticulum_destination_aspects = ""
 
     if not reticulum_destination_app:
-        reticulum_destination_app = "nomadnet"
+        reticulum_destination_app = "nomadnetwork"
     aspects = tuple(
         aspect.strip()
         for aspect in reticulum_destination_aspects.split(",")
         if aspect.strip()
     )
     if not aspects:
-        aspects = ("file",)
+        aspects = ("node",)
 
     return NomadCastConfig(
         listen_host=listen_host,

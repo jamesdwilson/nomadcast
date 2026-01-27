@@ -374,12 +374,15 @@ uri =
 
 [reticulum]
 config_dir =
+destination_app = nomadnetwork
+destination_aspects = node
 ```
 
 Reticulum/NomadNet considerations:
 
 - `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
 - NomadCast relies on Reticulum itself to load and apply interface settings. By default Reticulum reads `~/.reticulum/config`, or you can point NomadCast at a different directory via `reticulum.config_dir`.
+- `destination_app`/`destination_aspects` control which Reticulum destination is used for NomadNet resources. MeshChat-style URLs (identity hash + `/file/...`) use `nomadnetwork` + `node`, which is now the default.
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
