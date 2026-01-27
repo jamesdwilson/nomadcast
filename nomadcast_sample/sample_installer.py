@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import os
 import platform
 import re
@@ -11,6 +12,8 @@ from typing import Iterable
 
 
 PLACEHOLDER_IDENTITY = "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"
+PLACEHOLDER_SHOW_NAME = "Example NomadCast Podcast"
+PLACEHOLDER_SHOW_SLUG = "ExampleNomadCastPodcast"
 NOMADNET_GUIDE_URL = "https://reticulum.network/manual/"
 
 
@@ -58,6 +61,22 @@ def detect_nomadnet_identity() -> NomadNetIdentityDetection | None:
         if identity:
             return NomadNetIdentityDetection(identity=identity, source_path=candidate)
     return None
+
+
+def detect_nomadnet_node_name() -> str | None:
+    """Detect the NomadNet node name from the NomadNet config file."""
+    config_dir = nomadnet_config_dir()
+    config_path = config_dir / "config"
+    if not config_path.is_file():
+        return None
+    parser = configparser.ConfigParser(strict=False, inline_comment_prefixes=("#", ";"))
+    try:
+        with config_path.open(encoding="utf-8") as handle:
+            parser.read_file(handle)
+    except (OSError, configparser.Error):
+        return None
+    node_name = parser.get("node", "node_name", fallback="").strip()
+    return node_name or None
 
 
 def nomadnet_config_dir() -> Path:
@@ -118,6 +137,8 @@ def install_sample(
     storage_root: Path,
     pages_path: Path,
     identity: str,
+    show_name: str,
+    show_name_slug: str,
     replace_existing: bool,
 ) -> SampleInstallResult:
     """Install the bundled Relay Room content into NomadNet storage."""
@@ -131,7 +152,7 @@ def install_sample(
     source_files = source_root / "files"
     if replace_existing:
         # Clearing the destination makes the sample feel like a fresh install.
-        _clear_existing_storage(pages_path, files_root)
+        _clear_existing_storage(pages_path, files_root, show_name_slug)
     pages_path.mkdir(parents=True, exist_ok=True)
     files_root.mkdir(parents=True, exist_ok=True)
     # Copy the bundled page and file trees into the user's storage.
@@ -140,7 +161,21 @@ def install_sample(
     # Replace the placeholder identity with the user's real node hash.
     _replace_identity_in_tree(pages_path, identity)
     _replace_identity_in_tree(files_root, identity)
-    media_path = files_root / "ExampleNomadCastPodcast" / "media"
+    _replace_show_name_in_tree(pages_path, show_name, show_name_slug)
+    _replace_show_name_in_tree(files_root, show_name, show_name_slug)
+    sample_folder = files_root / PLACEHOLDER_SHOW_SLUG
+    target_folder = files_root / show_name_slug
+    if sample_folder.exists() and sample_folder != target_folder:
+        if target_folder.exists():
+            if replace_existing:
+                shutil.rmtree(target_folder)
+            else:
+                raise FileExistsError(
+                    f"Sample folder already exists: {target_folder}. "
+                    "Choose a new podcast name or replace existing pages."
+                )
+        shutil.move(str(sample_folder), str(target_folder))
+    media_path = target_folder / "media"
     return SampleInstallResult(
         storage_root=storage_root,
         pages_path=pages_path,
@@ -161,13 +196,14 @@ def open_in_file_browser(path: Path) -> None:
         subprocess.run(["xdg-open", str(path)], check=False)
 
 
-def _clear_existing_storage(pages_path: Path, files_root: Path) -> None:
+def _clear_existing_storage(pages_path: Path, files_root: Path, show_name_slug: str) -> None:
     """Remove existing sample content before re-installing."""
     if pages_path.exists():
         shutil.rmtree(pages_path)
-    sample_files = files_root / "ExampleNomadCastPodcast"
-    if sample_files.exists():
-        shutil.rmtree(sample_files)
+    for folder in {PLACEHOLDER_SHOW_SLUG, show_name_slug}:
+        sample_files = files_root / folder
+        if sample_files.exists():
+            shutil.rmtree(sample_files)
 
 
 def _replace_identity_in_tree(destination_root: Path, identity: str) -> None:
@@ -180,6 +216,31 @@ def _replace_identity_in_tree(destination_root: Path, identity: str) -> None:
         updated = content.replace(PLACEHOLDER_IDENTITY, identity)
         if updated != content:
             file_path.write_text(updated, encoding="utf-8")
+
+
+def _replace_show_name_in_tree(destination_root: Path, show_name: str, show_name_slug: str) -> None:
+    """Replace placeholder show names inside all text files in a tree."""
+    replacements = {
+        PLACEHOLDER_SHOW_NAME: show_name,
+        PLACEHOLDER_SHOW_SLUG: show_name_slug,
+    }
+    for file_path in _iter_text_files(destination_root):
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        updated = content
+        for placeholder, replacement in replacements.items():
+            updated = updated.replace(placeholder, replacement)
+        if updated != content:
+            file_path.write_text(updated, encoding="utf-8")
+
+
+def sanitize_show_name_for_path(show_name: str) -> str:
+    """Convert a show name into a filesystem-safe folder name."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", show_name.strip())
+    cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-._")
+    return cleaned[:64] if cleaned else "NomadCastPodcast"
 
 
 def _iter_text_files(root: Path) -> Iterable[Path]:
