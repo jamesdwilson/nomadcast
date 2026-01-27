@@ -14,6 +14,7 @@ from typing import NoReturn
 from nomadcast_sample.sample_installer import (
     NOMADNET_GUIDE_URL,
     PLACEHOLDER_IDENTITY,
+    NomadNetIdentityDetection,
     SampleInstallResult,
     detect_nomadnet_identity,
     install_sample,
@@ -139,17 +140,15 @@ class SampleCreatorApp:
         identity_label = ttk.Label(frame, text="NomadNet node ID (used in links + feeds)")
         identity_label.grid(row=4, column=0, sticky="w")
 
-        # Pre-fill with any identity we can detect; fall back to the placeholder.
-        detected_identity = detect_nomadnet_identity() or PLACEHOLDER_IDENTITY
-        identity_var = tk.StringVar(value=detected_identity)
+        # Pre-fill with any identity we can detect; leave blank if none found.
+        detected_identity = detect_nomadnet_identity()
+        identity_value = detected_identity.identity if detected_identity else ""
+        identity_var = tk.StringVar(value=identity_value)
         identity_input = ttk.Entry(frame, textvariable=identity_var)
         identity_input.grid(row=5, column=0, sticky="ew", pady=(4, 12))
 
-        identity_hint = ttk.Label(
-            frame,
-            text="We’ll thread this ID into the Relay Room pages and RSS feed.",
-            foreground="#8ea3b7",
-        )
+        identity_hint = ttk.Label(frame, foreground="#8ea3b7")
+        identity_hint.configure(text=_identity_hint_text(detected_identity))
         identity_hint.grid(row=6, column=0, sticky="w", pady=(0, 12))
 
         # --- Page placement choices ----------------------------------------------
@@ -346,6 +345,16 @@ class SampleCreatorApp:
         identity_input.focus()
         root.bind("<Return>", lambda event: install_button.invoke())
         root.mainloop()
+
+
+def _identity_hint_text(detected: NomadNetIdentityDetection | None) -> str:
+    """Build the hint text for the identity input."""
+    if detected:
+        return (
+            "Detected from "
+            f"{detected.source_path}. We’ll thread this ID into the Relay Room pages and RSS feed."
+        )
+    return "We’ll thread this ID into the Relay Room pages and RSS feed."
 
 
 def main() -> NoReturn:
