@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-"""NomadCast friendly sample installer UI."""
+"""Standalone NomadCast sample creator app."""
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
+
 from nomadcast.sample_installer import (
     NOMADNET_GUIDE_URL,
     PLACEHOLDER_IDENTITY,
@@ -16,14 +18,14 @@ from nomadcast.sample_installer import (
 
 
 @dataclass(frozen=True)
-class TkHelperConfig:
+class SampleCreatorConfig:
     title: str = "NomadCast Sample Creator"
     window_size: str = "720x520"
 
 
-class TkHelperLauncher:
-    def __init__(self, config: TkHelperConfig | None = None) -> None:
-        self._config = config or TkHelperConfig()
+class SampleCreatorApp:
+    def __init__(self, config: SampleCreatorConfig | None = None) -> None:
+        self._config = config or SampleCreatorConfig()
 
     def _center_window(self, root: "tk.Tk") -> None:
         root.update_idletasks()
@@ -50,7 +52,7 @@ class TkHelperLauncher:
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
 
-        icon_path = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
+        icon_path = Path(__file__).resolve().parents[2] / "assets" / "nomadcast-logo.png"
         if icon_path.exists():
             icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, icon_image)
@@ -236,3 +238,11 @@ class TkHelperLauncher:
         identity_input.focus()
         root.bind("<Return>", lambda event: install_button.invoke())
         root.mainloop()
+
+
+def main() -> NoReturn:
+    SampleCreatorApp().launch()
+
+
+if __name__ == "__main__":
+    main()

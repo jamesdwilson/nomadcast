@@ -149,7 +149,7 @@ How to run it:
 
 - From the repo, launch the standalone app:
   - `bin/nomadcast-sample`
-  - Or: `python -m nomadcast.sample_app`
+  - Or: `python -m nomadcast_sample`
 
 What it will do for you:
 
