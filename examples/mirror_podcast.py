@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-One-shot NomadCast mirror script (manual sync).
+One-shot NomadCast mirror script (on-demand sync).
 
-This script only runs when executed manually. It checks the timestamp of the
-last successful sync and exits if the mirror is newer than the freshness
-threshold. Otherwise, it fetches the parent RSS feed, downloads missing or
-updated enclosures, and regenerates a local RSS feed if changes are detected.
+This script only runs when executed. It checks the timestamp of the last
+successful sync and exits if the mirror is newer than the freshness threshold.
+Otherwise, it fetches the parent RSS feed, downloads missing or updated
+enclosures, and regenerates a local RSS feed if changes are detected.
 """
 
 from __future__ import annotations
@@ -25,7 +25,9 @@ from pathlib import Path
 
 # ==== Configuration (pre-filled by NomadCast) ====
 MIRROR_NAME = "ExampleNomadCastPodcast"
-PRIMARY_RSS = "https://example.com/podcast/feed.rss"
+PARENT_IDENTITY_HASH = "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"
+PARENT_SHOW_NAME = "ExampleNomadCastPodcast"
+PARENT_RSS = "https://example.com/podcast/feed.rss"
 FALLBACK_RSS = [
     # "https://mirror1.example.com/podcast/feed.rss",
 ]
@@ -92,6 +94,10 @@ def _fetch_rss(urls: list[str]) -> tuple[str, bytes]:
     raise RuntimeError("Unable to fetch RSS from any source") from last_error
 
 
+def _parent_nomadcast_link() -> str:
+    return f"nomadcast://{PARENT_IDENTITY_HASH}:{PARENT_SHOW_NAME}"
+
+
 def _findall(parent: ET.Element, tag: str) -> list[ET.Element]:
     return parent.findall(f".//{{*}}{tag}")
 
@@ -153,6 +159,39 @@ def _sanitize_filename(url: str, guid: str | None) -> str:
     return f"episode-{int(time.time())}.bin"
 
 
+def _apply_mirror_branding(channel: ET.Element) -> None:
+    parent_link = _parent_nomadcast_link()
+
+    title_elem = _find(channel, "title")
+    if title_elem is not None and title_elem.text:
+        if "mirror" not in title_elem.text.lower():
+            title_elem.text = f"{title_elem.text} (Mirror)"
+    elif title_elem is not None:
+        title_elem.text = f"{MIRROR_NAME} (Mirror)"
+
+    link_elem = _find(channel, "link")
+    if link_elem is not None:
+        link_elem.text = parent_link
+
+    mirror_note = (
+        "This is a mirror of the original podcast. "
+        f"Primary source: {parent_link}"
+    )
+    description_elem = _find(channel, "description")
+    if description_elem is not None and description_elem.text:
+        if mirror_note not in description_elem.text:
+            description_elem.text = f"{description_elem.text}\n\n{mirror_note}"
+    elif description_elem is not None:
+        description_elem.text = mirror_note
+
+    summary_elem = _find(channel, "summary")
+    if summary_elem is not None and summary_elem.text:
+        if mirror_note not in summary_elem.text:
+            summary_elem.text = f"{summary_elem.text}\n\n{mirror_note}"
+    elif summary_elem is not None:
+        summary_elem.text = mirror_note
+
+
 def main() -> int:
     mirror_root = (
         Path.home()
@@ -170,7 +209,7 @@ def main() -> int:
         print(f"[info] mirror fresh (< {FRESHNESS_HOURS}h). nothing to do.")
         return 0
 
-    rss_url, rss_bytes = _fetch_rss([PRIMARY_RSS, *FALLBACK_RSS])
+    rss_url, rss_bytes = _fetch_rss([PARENT_RSS, *FALLBACK_RSS])
     print(f"[info] using RSS source: {rss_url}")
 
     root = ET.fromstring(rss_bytes)
@@ -179,6 +218,7 @@ def main() -> int:
         print("[error] RSS channel not found.", file=sys.stderr)
         return 1
 
+    _apply_mirror_branding(channel)
     items = _findall(channel, "item")
     if not items:
         print("[warn] no items found in RSS feed.")

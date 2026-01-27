@@ -182,20 +182,23 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 </details>
 
 <details>
-<summary><strong>Manual mirroring script</strong></summary>
+<summary><strong>On-demand mirroring script</strong></summary>
 
-NomadCast includes a one-shot mirroring script for operators who want an explicit, manual sync flow.
+NomadCast includes a one-shot mirroring script for operators who want explicit, on-demand syncing. You can
+run it by hand or wire it into any scheduler or automation you prefer; it will still respect the
+freshness limiter so it only checks the upstream feed when the mirror is older than N hours.
 
 1. Copy `examples/mirror_podcast.py` to a location of your choice.
-2. Edit the configuration block at the top (RSS URL, mirror name, and freshness hours).
-3. Run it manually whenever you want to refresh your mirror:
+2. Edit the configuration block at the top (parent identity hash + show name, RSS URL, mirror name, and freshness hours).
+3. Run it whenever you want to refresh your mirror (manually or via automation):
 
 ```bash
 python3 mirror_podcast.py
 ```
 
 The script mirrors episodes into `~/.nomadnetwork/storage/files/<MirrorName>/media`, stores a tiny
-`last_sync` timestamp, and regenerates `feed.rss` only when changes are detected.
+`last_sync` timestamp, regenerates `feed.rss` only when changes are detected, and annotates the feed
+so listeners can see it is a mirror with a link back to the parent show.
 </details>
 
 <details>
