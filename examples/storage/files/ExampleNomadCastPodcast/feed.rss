@@ -8,6 +8,12 @@
     <itunes:author>NomadCast Demo Crew</itunes:author>
     <itunes:summary>A clean, production-shaped RSS file you can copy, rename, and publish with Nomad Network; host your episode files under /file/.</itunes:summary>
     <itunes:explicit>false</itunes:explicit>
+    <itunes:image href="nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/media/nomadcast-logo.png" />
+    <image>
+      <url>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast/media/nomadcast-logo.png</url>
+      <title>Example NomadCast Podcast</title>
+      <link>nomadcast:0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f:ExampleNomadCastPodcast</link>
+    </image>
 
     <item>
       <title>CCC — Reticulum: Unstoppable Networks for The People</title>
