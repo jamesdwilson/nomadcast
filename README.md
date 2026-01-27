@@ -17,9 +17,13 @@
   <img alt="Coverage" src="https://img.shields.io/codecov/c/github/jamesdwilson/nomadcast?logo=codecov" />
 </p>
 
+NomadCast is a small, stubborn bridge between Reticulum-hosted podcasts and the app you already use (Apple Podcasts, Overcast, Pocket Casts, etc.). It runs a tiny local service that looks like a normal HTTP feed, while quietly fetching the real RSS and audio over Reticulum in the background.
+
+In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the underground tunnels for you.
+
 ---
 
-<details>
+<details open>
 <summary><strong>Status + overview</strong></summary>
 
 <div align="center">
@@ -31,10 +35,6 @@
     design your show page, and experiment with the flow. Just don’t expect it to be fully reliable quite yet.
   </p>
 </div>
-
-NomadCast is a small, stubborn bridge between Reticulum-hosted podcasts and the app you already use (Apple Podcasts, Overcast, Pocket Casts, etc.). It runs a tiny local service that looks like a normal HTTP feed, while quietly fetching the real RSS and audio over Reticulum in the background.
-
-In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the underground tunnels for you.
 </details>
 
 <details>
