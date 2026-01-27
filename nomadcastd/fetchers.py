@@ -10,7 +10,6 @@ import importlib
 import importlib.util
 import logging
 import threading
-import time
 from dataclasses import dataclass
 from types import ModuleType
 from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
@@ -164,15 +163,15 @@ class ReticulumFetcher(Fetcher):
     def __init__(
         self,
         config_dir: str | None = None,
-        destination_app: str = "nomadnet",
-        destination_aspects: tuple[str, ...] = ("file",),
+        destination_app: str = "nomadnetwork",
+        destination_aspects: tuple[str, ...] = ("node",),
     ) -> None:
         """Initialize the Reticulum client.
 
         Inputs:
             config_dir: Reticulum configuration directory path from the daemon
                 config (reticulum_config_dir).
-            destination_app: Reticulum destination app name for file hosting.
+            destination_app: Reticulum destination app name for NomadNet nodes.
             destination_aspects: Destination aspects appended to the app name.
 
         Error Conditions:
@@ -274,7 +273,6 @@ class ReticulumFetcher(Fetcher):
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
-    _path_lookup_timeout_seconds = 15.0
     _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
 
     def _load_rns(self) -> RNSModule:
@@ -397,68 +395,11 @@ class ReticulumFetcher(Fetcher):
         except ValueError as exc:
             self.logger.error("Destination hash is not valid hex: %s", destination_hash)
             raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
-        destination = self._recall_destination(destination_hash, destination_bytes)
-        if destination is not None:
-            return destination
-        self._ensure_path(destination_hash, destination_bytes)
-        destination = self._recall_destination(destination_hash, destination_bytes)
-        if destination is not None:
-            return destination
         destination = self._resolve_destination_from_identity(destination_hash, destination_bytes)
         if destination is not None:
             return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
         raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
-
-    def _recall_destination(
-        self,
-        destination_hash: str,
-        destination_bytes: bytes,
-    ) -> DestinationType | None:
-        """Attempt to recall a Destination directly from its hash."""
-        destination_cls = self._rns.Destination
-        recall = getattr(destination_cls, "recall", None)
-        if callable(recall):
-            destination = recall(destination_bytes)
-            if destination is not None:
-                self.logger.info(
-                    "Reticulum destination recalled from destination hash %s",
-                    destination_hash,
-                )
-                return destination
-        from_hash = getattr(destination_cls, "from_hash", None)
-        if callable(from_hash):
-            destination = from_hash(destination_bytes)
-            if destination is not None:
-                self.logger.info(
-                    "Reticulum destination constructed from hash %s",
-                    destination_hash,
-                )
-                return destination
-        return None
-
-    def _ensure_path(self, destination_hash: str, destination_bytes: bytes) -> None:
-        """Request a path to the destination if none is known."""
-        transport = getattr(self._rns, "Transport", None)
-        if transport is None:
-            self.logger.info("Reticulum Transport unavailable; cannot request path for %s", destination_hash)
-            return
-        has_path = getattr(transport, "has_path", None)
-        request_path = getattr(transport, "request_path", None)
-        if not callable(has_path) or not callable(request_path):
-            self.logger.info("Reticulum Transport path helpers unavailable for %s", destination_hash)
-            return
-        if has_path(destination_bytes):
-            return
-        self.logger.info("Requesting Reticulum path for destination %s", destination_hash)
-        request_path(destination_bytes)
-        deadline = time.monotonic() + self._path_lookup_timeout_seconds
-        while time.monotonic() < deadline:
-            if has_path(destination_bytes):
-                self.logger.info("Reticulum path discovered for destination %s", destination_hash)
-                return
-            time.sleep(0.1)
-        self.logger.warning("Reticulum path lookup timed out for destination %s", destination_hash)
 
     def _resolve_destination_from_identity(
         self,
@@ -470,7 +411,7 @@ class ReticulumFetcher(Fetcher):
         MeshChat's NomadNet downloader treats the URL prefix as an identity
         hash and then derives the app/aspects destination from that identity.
         We mirror that behavior by constructing a destination from the recalled
-        identity when direct destination lookup fails.
+        identity.
         """
         identity_recall = getattr(self._rns.Identity, "recall", None)
         if not callable(identity_recall):

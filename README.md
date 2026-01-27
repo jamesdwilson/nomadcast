@@ -66,7 +66,7 @@ Think of this like subscribing to any other podcast, just with one extra helper 
 2. Start the NomadCast daemon (it runs quietly in the background).
 3. Click a NomadCast podcast link on a NomadNet page; NomadCast pops up to confirm the add.
 4. NomadCast adds the show to its config and launches your regular podcast player with a local URL like:
-   - http://127.0.0.1:5050/feeds/<destination_hash%3AShowName>
+   - http://127.0.0.1:5050/feeds/<identity_hash%3AShowName>
 
 After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and episode files available even when Reticulum is slow or offline by serving a local cache.
 
@@ -91,8 +91,8 @@ If you want a fallback for users who cannot click the link, include the raw loca
 - `nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestPodcastInTheWorld`
 
 Notes:
-- `\<destination_hash\>` is the publisher destination hash (32 hex chars) that listeners route to.
-- The show name is cosmetic. The destination hash is authoritative.
+- `\<identity_hash\>` is the publisher identity hash (32 hex chars) that listeners route to.
+- The show name is cosmetic. The identity hash is authoritative.
 - Since NomadCast is a new project, consider linking your podcast page back to this repo so listeners can install NomadCast and start using your show right away.
 
 If this project helps you out, a star, watch, share, or a gentle mention goes a long way. Thanks for helping NomadCast find its people. 💛
@@ -131,14 +131,14 @@ On first run, NomadCast registers itself as a system-wide protocol handler for `
    - Keep your RSS a standard RSS 2.0 feed with `<enclosure>` URLs. NomadCast will rewrite those URLs for listeners.
    - If you want a starting point, the `examples/storage/files/ExampleNomadCastPodcast/feed.rss` file is ready to copy and rename.
 
-4. In your NomadNet page (or wherever you share the show), publish a locator that includes your Reticulum destination hash plus a human-readable show name:
+4. In your NomadNet page (or wherever you share the show), publish a locator that includes your Reticulum identity hash plus a human-readable show name:
    ```text
-   <destination_hash:YourShowName>
+   <identity_hash:YourShowName>
    ```
 
-Listeners paste that string into NomadCast. If you have a working MeshChat file link, the hash before `:/file/...` is the destination hash to use.
+Listeners paste that string into NomadCast. If you have a working MeshChat file link, the hash before `:/file/...` is the identity hash to use.
 
-Publisher requirement: the destination hash must be stable. Use the same file hosting destination hash over time so the locator stays valid.
+Publisher requirement: the identity hash must be stable. Use the same identity hash over time so the locator stays valid.
 
 ## Examples tour
 
@@ -149,14 +149,14 @@ If you learn best by example, there’s a small, cheerful sample podcast site in
 - `examples/storage/files/ExampleNomadCastPodcast/media/CCC - Reticulum - Unstoppable Networks for The People-smaller.mp3` — sample audio from a Chaos Communication Congress (CCC) community recording.
 - `examples/storage/files/ExampleNomadCastPodcast/media/Option Plus - How to fix the Internet – Nostr, Reticulum and other ideas.mp3` — sample audio referencing the Option Plus podcast.
 
-Each file references the others so you can see the entire flow: NomadNet page → RSS feed → episode files. The example uses a placeholder destination hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
+Each file references the others so you can see the entire flow: NomadNet page → RSS feed → episode files. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
 
 ## Community conventions
 
 NomadCast aims to follow Reticulum community norms for discoverability and publishing:
 
 - Use Nomad Network file hosting paths (`/file/`) for RSS and episode file links when publishing on NomadNet pages.
-- Treat the Reticulum destination hash as the canonical show identifier; the human-readable name is optional and cosmetic.
+- Treat the Reticulum identity hash as the canonical show identifier; the human-readable name is optional and cosmetic.
 - Keep RSS feeds standard RSS 2.0 (and iTunes-compatible) so clients and tooling remain interoperable.
 
 ## How it works (more technical)
@@ -191,13 +191,13 @@ flowchart LR
 ```
 
 1. You add a show locator:
-   - <destination_hash:ShowName>
+   - <identity_hash:ShowName>
 
 2. The daemon creates a local, stable feed URL:
-   - http://127.0.0.1:5050/feeds/<destination_hash%3AShowName>
+   - http://127.0.0.1:5050/feeds/<identity_hash%3AShowName>
 
 3. Podcast app requests the feed:
-   - GET /feeds/<destination_hash%3AShowName>
+   - GET /feeds/<identity_hash%3AShowName>
 
 4. The daemon responds immediately with cached RSS (if present) and triggers refresh in the background:
    - It fetches the authoritative RSS bytes from the publisher over Reticulum.
@@ -205,7 +205,7 @@ flowchart LR
    - It rewrites only the media URLs inside the RSS so enclosures point back to localhost.
 
 5. Podcast app requests episode audio:
-   - GET /media/<destination_hash%3AShowName>/<episode_id_or_filename>
+   - GET /media/<identity_hash%3AShowName>/<episode_id_or_filename>
 
 6. The daemon serves from local cache if available.
    - If not cached, it queues a Reticulum fetch.
@@ -227,7 +227,7 @@ It only rewrites:
 - `<enclosure url="...">` and any other media URLs that point at the publisher’s Reticulum-hosted objects
 
 Into:
-- `http://127.0.0.1:5050/media/<destination_hash%3AShowName>/<token>`
+- `http://127.0.0.1:5050/media/<identity_hash%3AShowName>/<token>`
 
 Everything else is preserved, byte-for-byte where feasible:
 - title, description, GUID, pubDate, iTunes tags, chapters, artwork references, etc.
@@ -374,12 +374,15 @@ uri =
 
 [reticulum]
 config_dir =
+destination_app = nomadnetwork
+destination_aspects = node
 ```
 
 Reticulum/NomadNet considerations:
 
 - `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
 - NomadCast relies on Reticulum itself to load and apply interface settings. By default Reticulum reads `~/.reticulum/config`, or you can point NomadCast at a different directory via `reticulum.config_dir`.
+- `destination_app`/`destination_aspects` control which Reticulum destination is used for NomadNet resources. MeshChat-style URLs (identity hash + `/file/...`) use `nomadnetwork` + `node`, which is now the default.
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
