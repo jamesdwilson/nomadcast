@@ -21,6 +21,8 @@ NomadCast is a small, stubborn bridge between Reticulum-hosted podcasts and the 
 
 In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the underground tunnels for you.
 
+**Default feature (entirely optional):** in the spirit of Reticulum’s decentralized ethos, NomadCast ships with an **on-demand mirroring** script that turns any show into a constellation of sovereign mirrors. It is the bright, cooperative future of local-first media: anyone can pull a copy into their own NomadNet storage, light it up for their community, and keep the signal alive even when the wider network flickers. Run it manually when you want a fresh sync, or wire it into automation — it’s there by default, but only if you choose to use it.
+
 ---
 
 <details open>
