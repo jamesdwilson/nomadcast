@@ -10,7 +10,6 @@ import importlib
 import importlib.util
 import logging
 import threading
-import time
 from dataclasses import dataclass
 from types import ModuleType
 from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
@@ -274,7 +273,6 @@ class ReticulumFetcher(Fetcher):
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
-    _path_lookup_timeout_seconds = 15.0
     _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
 
     def _load_rns(self) -> RNSModule:
@@ -405,56 +403,6 @@ class ReticulumFetcher(Fetcher):
             return destination
         self.logger.error("Reticulum destination not found for %s", destination_hash)
         raise RuntimeError(f"Reticulum destination not found for {destination_hash}")
-
-    def _recall_destination(
-        self,
-        destination_hash: str,
-        destination_bytes: bytes,
-    ) -> DestinationType | None:
-        """Attempt to recall a Destination directly from its hash."""
-        destination_cls = self._rns.Destination
-        recall = getattr(destination_cls, "recall", None)
-        if callable(recall):
-            destination = recall(destination_bytes)
-            if destination is not None:
-                self.logger.info(
-                    "Reticulum destination recalled from destination hash %s",
-                    destination_hash,
-                )
-                return destination
-        from_hash = getattr(destination_cls, "from_hash", None)
-        if callable(from_hash):
-            destination = from_hash(destination_bytes)
-            if destination is not None:
-                self.logger.info(
-                    "Reticulum destination constructed from hash %s",
-                    destination_hash,
-                )
-                return destination
-        return None
-
-    def _ensure_path(self, destination_hash: str, destination_bytes: bytes) -> None:
-        """Request a path to the destination if none is known."""
-        transport = getattr(self._rns, "Transport", None)
-        if transport is None:
-            self.logger.info("Reticulum Transport unavailable; cannot request path for %s", destination_hash)
-            return
-        has_path = getattr(transport, "has_path", None)
-        request_path = getattr(transport, "request_path", None)
-        if not callable(has_path) or not callable(request_path):
-            self.logger.info("Reticulum Transport path helpers unavailable for %s", destination_hash)
-            return
-        if has_path(destination_bytes):
-            return
-        self.logger.info("Requesting Reticulum path for destination %s", destination_hash)
-        request_path(destination_bytes)
-        deadline = time.monotonic() + self._path_lookup_timeout_seconds
-        while time.monotonic() < deadline:
-            if has_path(destination_bytes):
-                self.logger.info("Reticulum path discovered for destination %s", destination_hash)
-                return
-            time.sleep(0.1)
-        self.logger.warning("Reticulum path lookup timed out for destination %s", destination_hash)
 
     def _resolve_destination_from_identity(
         self,
