@@ -19,7 +19,7 @@ from nomadcast.sample_installer import (
 
 @dataclass(frozen=True)
 class SampleCreatorConfig:
-    title: str = "NomadCast Sample Creator"
+    title: str = "NomadCast Show Forge"
     window_size: str = "720x520"
 
 
@@ -65,14 +65,14 @@ class SampleCreatorApp:
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
-        header = ttk.Label(frame, text="Let’s whip up a sample podcast ✨", font=("Segoe UI", 20, "bold"))
+        header = ttk.Label(frame, text="Boot up your podcast bunker ✨", font=("Segoe UI", 20, "bold"))
         header.grid(row=0, column=0, sticky="n", pady=(0, 12))
 
         subtitle = ttk.Label(
             frame,
             text=(
-                "We’ll tuck a warm, ready-to-share sample podcast into your Nomad Network storage. "
-                "Swap it out with your real show whenever you like."
+                "We’ll spin up a personal, 90s-leaning podcast home inside your Nomad Network storage. "
+                "It’s already yours — swap in your real show files whenever you’re ready."
             ),
             wraplength=640,
             justify="center",
@@ -89,12 +89,12 @@ class SampleCreatorApp:
 
         identity_hint = ttk.Label(
             frame,
-            text="We’ll drizzle this ID into the sample pages and RSS feed.",
+            text="We’ll stencil this ID into the show pages and RSS feed.",
             foreground="#8ea3b7",
         )
         identity_hint.grid(row=4, column=0, sticky="w", pady=(0, 12))
 
-        choice_label = ttk.Label(frame, text="Where should we place the sample pages?")
+        choice_label = ttk.Label(frame, text="Where should we drop the show pages?")
         choice_label.grid(row=5, column=0, sticky="w")
 
         location_var = tk.StringVar(value="replace_pages")
@@ -102,7 +102,7 @@ class SampleCreatorApp:
             frame,
             text=(
                 "Replace the pages at ~/.nomadnetwork/storage/pages "
-                "(also refreshes sample files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "(also refreshes show files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="replace_pages",
             variable=location_var,
@@ -113,14 +113,14 @@ class SampleCreatorApp:
             frame,
             text=(
                 "Nest pages under ~/.nomadnetwork/storage/pages/podcast "
-                "(sample files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "(show files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="podcast_pages",
             variable=location_var,
         )
         subdir_button.grid(row=7, column=0, sticky="w", pady=(0, 16))
 
-        status_var = tk.StringVar(value="Ready when you are. Let’s make something lovely.")
+        status_var = tk.StringVar(value="Ready when you are. Let’s make something weird + wonderful.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
         status_label.grid(row=8, column=0, sticky="w", pady=(0, 12))
 
@@ -153,7 +153,7 @@ class SampleCreatorApp:
                     title="Replace existing pages?",
                     message=(
                         "We’ll replace the NomadNet pages at "
-                        "~/.nomadnetwork/storage/pages and refresh the sample "
+                        "~/.nomadnetwork/storage/pages and refresh the show "
                         "files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast.\n\n"
                         "Sound good?"
                     ),
@@ -183,7 +183,7 @@ class SampleCreatorApp:
             open_pages_button.state(["!disabled"])
             open_media_button.state(["!disabled"])
             update_status(
-                f"Sample is ready! Pages: {install_result.pages_path} | "
+                f"Show is ready! Pages: {install_result.pages_path} | "
                 f"Media: {install_result.media_path}"
             )
 
@@ -209,7 +209,7 @@ class SampleCreatorApp:
         actions_row = ttk.Frame(frame)
         actions_row.grid(row=9, column=0, sticky="w", pady=(4, 16))
 
-        install_button = ttk.Button(actions_row, text="Create sample", command=handle_install)
+        install_button = ttk.Button(actions_row, text="Forge my show", command=handle_install)
         install_button.configure(default="active")
         install_button.grid(row=0, column=0, sticky="w")
 
@@ -229,7 +229,7 @@ class SampleCreatorApp:
 
         footer = ttk.Label(
             frame,
-            text="Tip: When you’re ready, swap the sample for your real show files and RSS feed.",
+            text="Tip: When you’re ready, swap in your real show files and RSS feed.",
             foreground="#8ea3b7",
         )
         footer.grid(row=11, column=0, sticky="w", pady=(16, 0))
