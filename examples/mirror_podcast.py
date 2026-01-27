@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-One-shot NomadCast mirror script (manual sync).
+One-shot NomadCast mirror script (on-demand sync).
 
-This script only runs when executed manually. It checks the timestamp of the
-last successful sync and exits if the mirror is newer than the freshness
-threshold. Otherwise, it fetches the parent RSS feed, downloads missing or
-updated enclosures, and regenerates a local RSS feed if changes are detected.
+This script only runs when executed. It checks the timestamp of the last
+successful sync and exits if the mirror is newer than the freshness threshold.
+Otherwise, it fetches the parent RSS feed, downloads missing or updated
+enclosures, and regenerates a local RSS feed if changes are detected.
 """
 
 from __future__ import annotations
@@ -219,7 +219,6 @@ def main() -> int:
         return 1
 
     _apply_mirror_branding(channel)
-
     items = _findall(channel, "item")
     if not items:
         print("[warn] no items found in RSS feed.")

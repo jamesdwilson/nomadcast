@@ -13,13 +13,14 @@ from typing import NoReturn
 
 from nomadcast_sample.sample_installer import (
     NOMADNET_GUIDE_URL,
-    PLACEHOLDER_IDENTITY,
     NomadNetIdentityDetection,
     SampleInstallResult,
     detect_nomadnet_identity,
+    detect_nomadnet_node_name,
     install_sample,
     nomadnet_storage_root,
     open_in_file_browser,
+    sanitize_show_name_for_path,
 )
 
 
@@ -151,9 +152,54 @@ class SampleCreatorApp:
         identity_hint.configure(text=_identity_hint_text(detected_identity))
         identity_hint.grid(row=6, column=0, sticky="w", pady=(0, 12))
 
+        # --- Podcast name input --------------------------------------------------
+        detected_node_name = detect_nomadnet_node_name()
+        base_name = detected_node_name or "Nomad Node"
+        show_name_suggestions = [
+            f"{base_name} Radio",
+            f"Dispatches from {base_name}",
+            f"{base_name} Relay Room",
+            f"Nomad Notes: {base_name}",
+        ]
+        show_name_value = show_name_suggestions[0] if detected_node_name else ""
+        show_name_var = tk.StringVar(value=show_name_value)
+
+        show_name_label = ttk.Label(frame, text="Podcast name")
+        show_name_label.grid(row=7, column=0, sticky="w")
+
+        show_name_input = ttk.Entry(frame, textvariable=show_name_var)
+        show_name_input.grid(row=8, column=0, sticky="ew", pady=(4, 6))
+
+        show_name_hint = ttk.Label(frame, foreground="#8ea3b7")
+        show_name_hint.configure(text=_show_name_hint_text(detected_node_name))
+        show_name_hint.grid(row=9, column=0, sticky="w", pady=(0, 8))
+
+        suggestions_label = ttk.Label(frame, text="Name templates")
+        suggestions_label.grid(row=10, column=0, sticky="w")
+
+        suggestions_list = tk.Listbox(
+            frame,
+            height=4,
+            width=62,
+            background="#101720",
+            foreground="#f5f7fa",
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        for suggestion in show_name_suggestions:
+            suggestions_list.insert(tk.END, suggestion)
+        suggestions_list.grid(row=11, column=0, sticky="w", pady=(4, 12))
+
+        def handle_show_name_select(event: tk.Event) -> None:
+            selection = suggestions_list.curselection()
+            if selection:
+                show_name_var.set(suggestions_list.get(selection[0]))
+
+        suggestions_list.bind("<<ListboxSelect>>", handle_show_name_select)
+
         # --- Page placement choices ----------------------------------------------
         choice_label = ttk.Label(frame, text="Where should we place the Relay Room pages?")
-        choice_label.grid(row=7, column=0, sticky="w")
+        choice_label.grid(row=12, column=0, sticky="w")
 
         location_var = tk.StringVar(value="replace_pages")
         replace_button = ttk.Radiobutton(
@@ -164,7 +210,7 @@ class SampleCreatorApp:
             value="replace_pages",
             variable=location_var,
         )
-        replace_button.grid(row=8, column=0, sticky="w", pady=(4, 2))
+        replace_button.grid(row=13, column=0, sticky="w", pady=(4, 2))
 
         subdir_button = ttk.Radiobutton(
             frame,
@@ -174,10 +220,10 @@ class SampleCreatorApp:
             value="podcast_pages",
             variable=location_var,
         )
-        subdir_button.grid(row=9, column=0, sticky="w", pady=(0, 16))
+        subdir_button.grid(row=14, column=0, sticky="w", pady=(0, 16))
 
         pending_frame = ttk.Frame(frame)
-        pending_frame.grid(row=10, column=0, sticky="w", pady=(0, 12))
+        pending_frame.grid(row=15, column=0, sticky="w", pady=(0, 12))
         pending_frame.columnconfigure(0, weight=1)
         pending_frame.grid_remove()
 
@@ -198,7 +244,7 @@ class SampleCreatorApp:
         # --- Status line ----------------------------------------------------------
         status_var = tk.StringVar(value="Ready when you are. Let’s bring the Relay Room online.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
-        status_label.grid(row=11, column=0, sticky="w", pady=(0, 12))
+        status_label.grid(row=16, column=0, sticky="w", pady=(0, 12))
 
         # Remember the install result so we can open the folders afterward.
         install_result: SampleInstallResult | None = None
@@ -213,7 +259,7 @@ class SampleCreatorApp:
             pending_actions = [
                 "Create or update the Relay Room pages.",
                 "Copy starter media files into the Relay Room.",
-                "Write feed settings with your NomadNet node ID.",
+                "Write feed settings with your NomadNet node ID and show name.",
             ]
             for action in pending_actions:
                 pending_list.insert(tk.END, f"• {action}")
@@ -234,14 +280,33 @@ class SampleCreatorApp:
                 return None
             return identity
 
+        def ensure_show_name() -> str | None:
+            """Validate the podcast name input and return the trimmed value."""
+            show_name = show_name_var.get().strip()
+            if not show_name:
+                update_status("Add a podcast name so the install feels personal.", is_error=True)
+                return None
+            if len(show_name) < 3:
+                update_status("That podcast name feels a little short.", is_error=True)
+                return None
+            if len(show_name) > 80:
+                update_status("Podcast names should stay under 80 characters.", is_error=True)
+                return None
+            if not any(char.isalnum() for char in show_name):
+                update_status("Please use a podcast name with letters or numbers.", is_error=True)
+                return None
+            return show_name
+
         def handle_install() -> None:
             """Install the sample content based on the selected options."""
             nonlocal install_result
             show_pending_actions()
             identity = ensure_identity()
-            if not identity:
+            show_name = ensure_show_name()
+            if not identity or not show_name:
                 clear_pending_actions()
                 return
+            show_name_slug = sanitize_show_name_for_path(show_name)
 
             # Resolve the NomadNet storage root and the user's placement choice.
             storage_root = nomadnet_storage_root()
@@ -255,7 +320,7 @@ class SampleCreatorApp:
                     message=(
                         "We’ll replace the NomadNet pages at "
                         "~/.nomadnetwork/storage/pages and refresh the Relay Room "
-                        "starter files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast.\n\n"
+                        f"starter files under ~/.nomadnetwork/storage/files/{show_name_slug}.\n\n"
                         "Sound good?"
                     ),
                     parent=root,
@@ -278,6 +343,8 @@ class SampleCreatorApp:
                     storage_root=storage_root,
                     pages_path=pages_path,
                     identity=identity,
+                    show_name=show_name,
+                    show_name_slug=show_name_slug,
                     replace_existing=replace_existing,
                 )
             except OSError as exc:
@@ -322,7 +389,7 @@ class SampleCreatorApp:
 
         # --- Action buttons -------------------------------------------------------
         actions_row = ttk.Frame(frame)
-        actions_row.grid(row=12, column=0, sticky="w", pady=(4, 16))
+        actions_row.grid(row=17, column=0, sticky="w", pady=(4, 16))
 
         install_button = ttk.Button(actions_row, text="BEGIN TRANSMISSION", command=handle_install)
         install_button.configure(default="active")
@@ -333,7 +400,7 @@ class SampleCreatorApp:
 
         # --- Folder shortcuts -----------------------------------------------------
         links_row = ttk.Frame(frame)
-        links_row.grid(row=13, column=0, sticky="w")
+        links_row.grid(row=18, column=0, sticky="w")
 
         open_pages_button = ttk.Button(links_row, text="📁 Open Pages root", command=handle_open_pages)
         open_pages_button.grid(row=0, column=0, sticky="w")
@@ -355,6 +422,13 @@ def _identity_hint_text(detected: NomadNetIdentityDetection | None) -> str:
             f"{detected.source_path}. We’ll thread this ID into the Relay Room pages and RSS feed."
         )
     return "We’ll thread this ID into the Relay Room pages and RSS feed."
+
+
+def _show_name_hint_text(detected_node_name: str | None) -> str:
+    """Build the hint text for the podcast name input."""
+    if detected_node_name:
+        return f"Pulled from your NomadNet config: {detected_node_name}."
+    return "Pick a show name that matches your node’s vibe."
 
 
 def main() -> NoReturn:
