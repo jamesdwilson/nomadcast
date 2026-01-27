@@ -35,6 +35,8 @@ NomadCast is a friendly bridge between Reticulum-hosted podcasts and the podcast
 
 In other words: you subscribe to a normal `localhost` URL, and your podcast app never needs to know Reticulum exists. NomadCast handles the magic for you.
 
+If your vibe is “broadcasting from a bunker in the 90s” but you still want it welcoming, this is that: weird on purpose, friendly by default, and focused on your signal instead of the platform.
+
 ## Privacy and total flexibility
 
 NomadCast is built to be aggressively private and radically user-controlled for listeners and publishers alike:
@@ -44,7 +46,8 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 - **Your preferred player, your feeds, your network.** Pick the podcast app you already trust, then subscribe to any show you want from anywhere on the Reticulum network. NomadCast just bridges the gap and gets out of your way.
 - **Publisher-side freedom.** Publish at any bitrate, in any format. Audio-only, video podcasts, experimental formats — if your RSS references it, NomadCast will fetch it as-is over Reticulum.
 
-## Contents
+<details open>
+<summary><strong>Contents</strong> (foldable map)</summary>
 
 - [What a normal listener does](#what-a-normal-listener-does)
 - [What a publisher does (v0, simplest path)](#what-a-publisher-does-v0-simplest-path)
@@ -59,6 +62,11 @@ NomadCast is built to be aggressively private and radically user-controlled for 
 - [Roadmap (future capabilities)](#roadmap-future-capabilities)
 - [Related projects and references](#related-projects-and-references)
 
+</details>
+
+<details open>
+<summary><strong>Start here: listeners</strong> — plug in, subscribe, forget</summary>
+
 ## What a normal listener does
 
 Think of this like subscribing to any other podcast, just with one extra helper app.
@@ -70,6 +78,11 @@ Think of this like subscribing to any other podcast, just with one extra helper 
    - http://127.0.0.1:5050/feeds/<identity_hash%3AShowName>
 
 After that, your podcast app behaves normally: it sees an RSS feed, downloads episodes, and plays them. NomadCast keeps the feed and episode files available even when Reticulum is slow or offline by serving a local cache.
+
+</details>
+
+<details open>
+<summary><strong>Start here: publishers</strong> — the simplest path to a show</summary>
 
 ## What a publisher does (v0, simplest path)
 
@@ -141,6 +154,11 @@ Listeners paste that string into NomadCast. If you have a working MeshChat file 
 
 Publisher requirement: the identity hash must be stable. Use the same identity hash over time so the locator stays valid.
 
+</details>
+
+<details>
+<summary><strong>Publisher sample creator app</strong> — the Relay Room starter kit</summary>
+
 ## Publisher sample creator app
 
 Welcome to the Relay Room. This app spins up a ready-to-publish starter show for you, then points you straight at the files so you can remix them. It’s for publishers who want to get a first transmission on the air without any detours.
@@ -160,6 +178,11 @@ What it will do for you:
 
 When you’re done, hand it off like a real broadcast: swap in your show name, update the RSS metadata, and drop in your audio files. Your NomadNet node will host the updated files as soon as you save them.
 
+</details>
+
+<details>
+<summary><strong>Examples tour</strong> — a small, cheerful demo webroot</summary>
+
 ## Examples tour
 
 If you learn best by example, there’s a small, cheerful sample podcast site in the `examples/` directory. It is laid out like a fresh Nomad Network storage tree, so you can copy it directly into `~/.nomadnetwork/storage/` if you want a ready-to-run starter webroot. Think of it as a friendly mock webroot for someone brand new to NomadNet.
@@ -171,6 +194,11 @@ If you learn best by example, there’s a small, cheerful sample podcast site in
 
 Each file references the others so you can see the entire flow: NomadNet page → RSS feed → episode files. The example uses a placeholder identity hash (`0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f`), so replace it with your node’s real hash when you publish. You can use these as a template, rename things to your show, and publish with confidence.
 
+</details>
+
+<details>
+<summary><strong>Community conventions</strong> — keep it discoverable</summary>
+
 ## Community conventions
 
 NomadCast aims to follow Reticulum community norms for discoverability and publishing:
@@ -178,6 +206,11 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 - Use Nomad Network file hosting paths (`/file/`) for RSS and episode file links when publishing on NomadNet pages.
 - Treat the Reticulum identity hash as the canonical show identifier; the human-readable name is optional and cosmetic.
 - Keep RSS feeds standard RSS 2.0 (and iTunes-compatible) so clients and tooling remain interoperable.
+
+</details>
+
+<details>
+<summary><strong>How it works (more technical)</strong> — peek under the hood</summary>
 
 ## How it works (more technical)
 
@@ -267,6 +300,11 @@ The daemon will:
 - Default bind: 127.0.0.1:5050
 - Rationale: common developer-local port, typically unprivileged, low collision with Reticulum tools.
 
+</details>
+
+<details>
+<summary><strong>Source code guide</strong> — where the pieces live</summary>
+
 ## Source code guide
 
 NomadCast is split into a UI package and a daemon package:
@@ -285,6 +323,11 @@ NomadCast is split into a UI package and a daemon package:
   - `fetchers.py` defines the Reticulum fetcher interface (with a mock for tests).
 
 Tests live in `tests/` and focus on parsing, RSS rewriting, and HTTP range behavior.
+
+</details>
+
+<details>
+<summary><strong>Protocol handler (nomadcast://)</strong> — click to subscribe</summary>
 
 ## Protocol handler (nomadcast://)
 
@@ -325,6 +368,11 @@ The UI also offers to install NomadCast into your system’s Applications locati
 - **macOS:** installs `NomadCast.app` into `/Applications` (or `~/Applications` if the system folder is not writable).
 - **Windows:** writes a per-user launcher into `%LOCALAPPDATA%\Programs\NomadCast`.
 - **Linux:** creates a `nomadcast` launcher under `~/.local/bin` plus a `nomadcast.desktop` entry in `~/.local/share/applications`.
+
+</details>
+
+<details>
+<summary><strong>Installation notes (developer-oriented)</strong> — setup & config</summary>
 
 ## Installation notes (developer-oriented)
 
@@ -406,6 +454,11 @@ Reticulum/NomadNet considerations:
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
 
+</details>
+
+<details>
+<summary><strong>How to run tests & coverage</strong> — validate before you ship</summary>
+
 ## How to run tests & coverage
 
 Install dev tooling (coverage) once:
@@ -463,6 +516,11 @@ See:
 - Reticulum site mirror: https://reticulum.network/manual/
 - Nomad Network: https://github.com/markqvist/NomadNet
 
+</details>
+
+<details>
+<summary><strong>Roadmap (future capabilities)</strong> — where it’s headed</summary>
+
 ## Roadmap (future capabilities)
 
 Detailed tracking now lives in [ROADMAP.md](ROADMAP.md). The items below link to their fuller descriptions:
@@ -475,6 +533,11 @@ Detailed tracking now lives in [ROADMAP.md](ROADMAP.md). The items below link to
 - [Health endpoint](ROADMAP.md#health-endpoint)
 - [Daemon-managed hosting pipeline](ROADMAP.md#daemon-managed-hosting-pipeline)
 
+</details>
+
+<details>
+<summary><strong>Related projects and references</strong> — the wider mesh</summary>
+
 ## Related projects and references
 
 - Reticulum (RNS): https://github.com/markqvist/Reticulum
@@ -484,3 +547,5 @@ Detailed tracking now lives in [ROADMAP.md](ROADMAP.md). The items below link to
 - MeshChat (web UI LXMF client): https://github.com/liamcottle/reticulum-meshchat
 - rBrowser (NomadNet browser UI): https://github.com/fr33n0w/rBrowser
 - Reticulum OpenAPI (community experiment): https://github.com/FreeTAKTeam/Reticulum_OpenAPI
+
+</details>
