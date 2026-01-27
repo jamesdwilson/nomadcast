@@ -8,7 +8,9 @@ allows a mock implementation for tests while real RNS integration is pending.
 
 import importlib
 import importlib.util
+import io
 import logging
+import os
 import time
 import threading
 from dataclasses import dataclass
@@ -28,6 +30,7 @@ class RequestReceiptProtocol(Protocol):
     SENT: int
     DELIVERED: int
     RECEIVING: int
+    metadata: dict | None
     response: bytes | None
     progress: float
 
@@ -359,7 +362,12 @@ class ReticulumFetcher(Fetcher):
             if receipt.response is None:
                 result_error = RuntimeError(f"Reticulum response missing for {normalized_path}")
             else:
-                result_payload = bytes(receipt.response)
+                try:
+                    result_payload = self._extract_file_payload(receipt)
+                except Exception as exc:
+                    result_error = RuntimeError(
+                        f"Reticulum response unsupported for {normalized_path}: {exc}"
+                    ) from exc
             result_event.set()
 
         def on_download_failure(message: str) -> None:
@@ -656,6 +664,47 @@ class ReticulumFetcher(Fetcher):
             time.sleep(0.1)
         self.logger.error("Reticulum response timeout for %s", resource_path)
         raise TimeoutError(f"Timed out waiting for Reticulum response for {resource_path}")
+
+    def _extract_file_payload(self, request_receipt: RequestReceiptType) -> bytes:
+        # get response
+        response = request_receipt.response
+
+        # handle buffered reader response
+        if isinstance(response, io.BufferedReader):
+
+            # get file name from metadata
+            file_name = "downloaded_file"
+            metadata = request_receipt.metadata
+            if metadata is not None and "name" in metadata:
+                file_path = metadata["name"].decode("utf-8")
+                file_name = os.path.basename(file_path)
+
+            # get file data
+            file_data: bytes = response.read()
+
+            return file_data
+
+        # check for list response with bytes in position 0, and metadata dict in position 1
+        # e.g: [file_bytes, {name: "filename.ext"}]
+        if isinstance(response, list) and isinstance(response[1], dict):
+
+            file_data: bytes = response[0]
+            metadata: dict = response[1]
+
+            # get file name from metadata
+            file_name = "downloaded_file"
+            if metadata is not None and "name" in metadata:
+                file_path = metadata["name"].decode("utf-8")
+                file_name = os.path.basename(file_path)
+
+            return file_data
+
+        # try using original response format
+        # unsure if this is actually used anymore now that a buffered reader is provided
+        # have left here just in case...
+        file_name: str = response[0]
+        file_data: bytes = response[1]
+        return file_data
 
     def _normalize_resource_path(self, resource_path: str) -> str:
         """Normalize a resource path for Reticulum requests.
