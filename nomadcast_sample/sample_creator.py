@@ -19,7 +19,7 @@ from nomadcast.sample_installer import (
 
 @dataclass(frozen=True)
 class SampleCreatorConfig:
-    title: str = "NomadCast Sample Creator"
+    title: str = "NomadCast Relay Room"
     window_size: str = "720x520"
 
 
@@ -65,64 +65,67 @@ class SampleCreatorApp:
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
-        header = ttk.Label(frame, text="Let’s whip up a sample podcast ✨", font=("Segoe UI", 20, "bold"))
+        header = ttk.Label(frame, text="FIRST TRANSMISSION STARTS HERE", font=("Segoe UI", 20, "bold"))
         header.grid(row=0, column=0, sticky="n", pady=(0, 12))
+
+        subhead = ttk.Label(frame, text="Radio YOU is on the air.", font=("Segoe UI", 12))
+        subhead.grid(row=1, column=0, sticky="n", pady=(0, 10))
 
         subtitle = ttk.Label(
             frame,
             text=(
-                "We’ll tuck a warm, ready-to-share sample podcast into your Nomad Network storage. "
-                "Swap it out with your real show whenever you like."
+                "We’ll carve out a real podcast home in your Nomad Network storage. "
+                "It’s yours — decentralized from the first click."
             ),
             wraplength=640,
             justify="center",
         )
-        subtitle.grid(row=1, column=0, sticky="n", pady=(0, 16))
+        subtitle.grid(row=2, column=0, sticky="n", pady=(0, 16))
 
         identity_label = ttk.Label(frame, text="NomadNet node ID (used in links + feeds)")
-        identity_label.grid(row=2, column=0, sticky="w")
+        identity_label.grid(row=3, column=0, sticky="w")
 
         detected_identity = detect_nomadnet_identity() or PLACEHOLDER_IDENTITY
         identity_var = tk.StringVar(value=detected_identity)
         identity_input = ttk.Entry(frame, textvariable=identity_var)
-        identity_input.grid(row=3, column=0, sticky="ew", pady=(4, 12))
+        identity_input.grid(row=4, column=0, sticky="ew", pady=(4, 12))
 
         identity_hint = ttk.Label(
             frame,
-            text="We’ll drizzle this ID into the sample pages and RSS feed.",
+            text="We’ll thread this ID into the Relay Room pages and RSS feed.",
             foreground="#8ea3b7",
         )
-        identity_hint.grid(row=4, column=0, sticky="w", pady=(0, 12))
+        identity_hint.grid(row=5, column=0, sticky="w", pady=(0, 12))
 
-        choice_label = ttk.Label(frame, text="Where should we place the sample pages?")
-        choice_label.grid(row=5, column=0, sticky="w")
+        choice_label = ttk.Label(frame, text="Where should we place the Relay Room pages?")
+        choice_label.grid(row=6, column=0, sticky="w")
 
         location_var = tk.StringVar(value="replace_pages")
         replace_button = ttk.Radiobutton(
             frame,
             text=(
                 "Replace the pages at ~/.nomadnetwork/storage/pages "
-                "(also refreshes sample files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "(also refreshes Relay Room files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="replace_pages",
             variable=location_var,
         )
-        replace_button.grid(row=6, column=0, sticky="w", pady=(4, 2))
+        replace_button.grid(row=7, column=0, sticky="w", pady=(4, 2))
 
         subdir_button = ttk.Radiobutton(
             frame,
             text=(
                 "Nest pages under ~/.nomadnetwork/storage/pages/podcast "
-                "(sample files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
+                "(Relay Room files still go to ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast)"
             ),
             value="podcast_pages",
             variable=location_var,
         )
-        subdir_button.grid(row=7, column=0, sticky="w", pady=(0, 16))
+        subdir_button.grid(row=8, column=0, sticky="w", pady=(0, 16))
 
-        status_var = tk.StringVar(value="Ready when you are. Let’s make something lovely.")
+        status_var = tk.StringVar(value="Ready when you are. Let’s bring the Relay Room online.")
         status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
-        status_label.grid(row=8, column=0, sticky="w", pady=(0, 12))
+        status_label.grid(row=9, column=0, sticky="w", pady=(0, 12))
 
         install_result: SampleInstallResult | None = None
 
@@ -153,8 +156,8 @@ class SampleCreatorApp:
                     title="Replace existing pages?",
                     message=(
                         "We’ll replace the NomadNet pages at "
-                        "~/.nomadnetwork/storage/pages and refresh the sample "
-                        "files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast.\n\n"
+                        "~/.nomadnetwork/storage/pages and refresh the Relay Room "
+                        "starter files under ~/.nomadnetwork/storage/files/ExampleNomadCastPodcast.\n\n"
                         "Sound good?"
                     ),
                     parent=root,
@@ -183,7 +186,7 @@ class SampleCreatorApp:
             open_pages_button.state(["!disabled"])
             open_media_button.state(["!disabled"])
             update_status(
-                f"Sample is ready! Pages: {install_result.pages_path} | "
+                f"Relay Room is ready! Pages: {install_result.pages_path} | "
                 f"Media: {install_result.media_path}"
             )
 
@@ -207,9 +210,9 @@ class SampleCreatorApp:
             webbrowser.open(NOMADNET_GUIDE_URL)
 
         actions_row = ttk.Frame(frame)
-        actions_row.grid(row=9, column=0, sticky="w", pady=(4, 16))
+        actions_row.grid(row=10, column=0, sticky="w", pady=(4, 16))
 
-        install_button = ttk.Button(actions_row, text="Create sample", command=handle_install)
+        install_button = ttk.Button(actions_row, text="BEGIN TRANSMISSION", command=handle_install)
         install_button.configure(default="active")
         install_button.grid(row=0, column=0, sticky="w")
 
@@ -217,7 +220,7 @@ class SampleCreatorApp:
         guide_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         links_row = ttk.Frame(frame)
-        links_row.grid(row=10, column=0, sticky="w")
+        links_row.grid(row=11, column=0, sticky="w")
 
         open_pages_button = ttk.Button(links_row, text="📁 Open Pages root", command=handle_open_pages)
         open_pages_button.state(["disabled"])
@@ -229,10 +232,13 @@ class SampleCreatorApp:
 
         footer = ttk.Label(
             frame,
-            text="Tip: When you’re ready, swap the sample for your real show files and RSS feed.",
+            text=(
+                "Tip: You’ve made it to the Relay Room — now you can swap in fresh episodes and update the RSS feed "
+                "whenever your broadcast needs shift."
+            ),
             foreground="#8ea3b7",
         )
-        footer.grid(row=11, column=0, sticky="w", pady=(16, 0))
+        footer.grid(row=12, column=0, sticky="w", pady=(16, 0))
 
         self._center_window(root)
         identity_input.focus()
