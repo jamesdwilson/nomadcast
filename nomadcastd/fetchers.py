@@ -9,6 +9,7 @@ allows a mock implementation for tests while real RNS integration is pending.
 import importlib
 import importlib.util
 import logging
+import time
 import threading
 from dataclasses import dataclass
 from types import ModuleType
@@ -28,6 +29,7 @@ class RequestReceiptProtocol(Protocol):
     DELIVERED: int
     RECEIVING: int
     response: bytes | None
+    progress: float
 
     def get_status(self) -> int:
         ...
@@ -50,6 +52,16 @@ class LinkProtocol(Protocol):
         ...
 
     def teardown(self) -> None:
+        ...
+
+
+class TransportProtocol(Protocol):
+    @staticmethod
+    def has_path(destination_hash: bytes) -> bool:
+        ...
+
+    @staticmethod
+    def request_path(destination_hash: bytes) -> None:
         ...
 
 
@@ -78,12 +90,14 @@ if TYPE_CHECKING:
     from RNS import Link as LinkType
     from RNS import RequestReceipt as RequestReceiptType
     from RNS import Reticulum as ReticulumType
+    from RNS import Transport as TransportType
 else:
     DestinationType: TypeAlias = DestinationProtocol
     IdentityType: TypeAlias = IdentityProtocol
     LinkType: TypeAlias = LinkProtocol
     RequestReceiptType: TypeAlias = RequestReceiptProtocol
     ReticulumType: TypeAlias = ReticulumProtocol
+    TransportType: TypeAlias = TransportProtocol
 
 
 class RNSModule(Protocol):
@@ -92,6 +106,7 @@ class RNSModule(Protocol):
     Link: type[LinkType]
     Identity: type[IdentityType]
     RequestReceipt: type[RequestReceiptType]
+    Transport: type[TransportProtocol]
 
 
 class Fetcher(Protocol):
@@ -114,6 +129,112 @@ class Fetcher(Protocol):
             Implementations should document whether concurrent calls are safe.
         """
         ...
+
+
+nomadnet_cached_links: dict[bytes, LinkType] = {}
+
+
+class NomadnetDownloader:
+    def __init__(
+        self,
+        rns: RNSModule,
+        destination_hash: bytes,
+        path: str,
+        data: bytes | None,
+        on_download_success: Callable[[RequestReceiptType], None],
+        on_download_failure: Callable[[str], None],
+        on_progress_update: Callable[[float], None],
+        timeout: int | None = None,
+    ) -> None:
+        self.app_name = "nomadnetwork"
+        self.aspects = "node"
+        self.rns = rns
+        self.destination_hash = destination_hash
+        self.path = path
+        self.data = data
+        self.timeout = timeout
+        self.on_download_success = on_download_success
+        self.on_download_failure = on_download_failure
+        self.on_progress_update = on_progress_update
+
+    # setup link to destination and request download
+    def download(self, path_lookup_timeout: int = 15, link_establishment_timeout: int = 15) -> None:
+        # use existing established link if it's active
+        if self.destination_hash in nomadnet_cached_links:
+            link = nomadnet_cached_links[self.destination_hash]
+            if link.status is self.rns.Link.ACTIVE:
+                print("[NomadnetDownloader] using existing link for request")
+                self.link_established(link)
+                return
+
+        # determine when to timeout
+        timeout_after_seconds = time.time() + path_lookup_timeout
+
+        # check if we have a path to the destination
+        if not self.rns.Transport.has_path(self.destination_hash):
+            # we don't have a path, so we need to request it
+            self.rns.Transport.request_path(self.destination_hash)
+
+            # wait until we have a path, or give up after the configured timeout
+            while not self.rns.Transport.has_path(self.destination_hash) and time.time() < timeout_after_seconds:
+                time.sleep(0.1)
+
+        # if we still don't have a path, we can't establish a link, so bail out
+        if not self.rns.Transport.has_path(self.destination_hash):
+            self.on_download_failure("Could not find path to destination.")
+            return
+
+        # create destination to nomadnet node
+        identity = self.rns.Identity.recall(self.destination_hash)
+        destination = self.rns.Destination(
+            identity,
+            self.rns.Destination.OUT,
+            self.rns.Destination.SINGLE,
+            self.app_name,
+            self.aspects,
+        )
+
+        # create link to destination
+        print("[NomadnetDownloader] establishing new link for request")
+        link = self.rns.Link(destination, established_callback=self.link_established)
+
+        # determine when to timeout
+        timeout_after_seconds = time.time() + link_establishment_timeout
+
+        # wait until we have established a link, or give up after the configured timeout
+        while link.status is not self.rns.Link.ACTIVE and time.time() < timeout_after_seconds:
+            time.sleep(0.1)
+
+        # if we still haven't established a link, bail out
+        if link.status is not self.rns.Link.ACTIVE:
+            self.on_download_failure("Could not establish link to destination.")
+
+    # link to destination was established, we should now request the download
+    def link_established(self, link: LinkType) -> None:
+        # cache link for using in future requests
+        nomadnet_cached_links[self.destination_hash] = link
+
+        # request download over link
+        link.request(
+            self.path,
+            data=self.data,
+            response_callback=self.on_response,
+            failed_callback=self.on_failed,
+            progress_callback=self.on_progress,
+            timeout=self.timeout,
+        )
+
+    # handle successful download
+    def on_response(self, request_receipt: RequestReceiptType) -> None:
+        self.on_download_success(request_receipt)
+
+    # handle failure
+    def on_failed(self, request_receipt: RequestReceiptType | None = None) -> None:
+        self.on_download_failure("request_failed")
+
+    # handle download progress
+    def on_progress(self, request_receipt: RequestReceiptType) -> None:
+        self.on_progress_update(request_receipt.progress)
 
 
 @dataclass
@@ -224,56 +345,61 @@ class ReticulumFetcher(Fetcher):
             getattr(self._rns, "__name__", type(self._rns).__name__),
             getattr(self._rns, "__file__", "unknown"),
         )
-        destination = self._resolve_destination(destination_hash)
-        self.logger.info(
-            "Reticulum destination constructed destination=%s type=%s obj=%r",
-            destination_hash,
-            type(destination).__name__,
-            destination,
-        )
-        computed_hash = getattr(destination, "hash", None)
-        if computed_hash is not None:
-            self.logger.info(
-                "Reticulum destination hash computed=%s expected=%s",
-                computed_hash.hex() if isinstance(computed_hash, (bytes, bytearray)) else computed_hash,
-                destination_hash,
-            )
-        link = self._rns.Link(destination)
-        self.logger.info("Reticulum link created resource=%s link=%r", normalized_path, link)
         try:
-            self._await_link(link, normalized_path)
-            self.logger.info(
-                "Reticulum request send resource=%s timeout=%s",
-                normalized_path,
-                self._request_timeout_seconds,
-            )
-            receipt = link.request(normalized_path, timeout=self._request_timeout_seconds)
-            self.logger.info(
-                "Reticulum request receipt received resource=%s receipt=%r type=%s",
-                normalized_path,
-                receipt,
-                type(receipt).__name__,
-            )
-            if not receipt:
-                self.logger.error("Reticulum request rejected for %s", normalized_path)
-                raise RuntimeError(f"Reticulum request for {normalized_path} was rejected")
-            payload = self._await_request(receipt, normalized_path)
-            self.logger.info(
-                "Reticulum fetch complete destination=%s resource=%s bytes=%d",
-                destination_hash,
-                normalized_path,
-                len(payload),
-            )
-            return payload
-        finally:
-            link.teardown()
-            self.logger.info("Reticulum link teardown complete resource=%s", normalized_path)
+            destination_bytes = bytes.fromhex(destination_hash)
+        except ValueError as exc:
+            self.logger.error("Destination hash is not valid hex: %s", destination_hash)
+            raise ValueError(f"Destination hash is not valid hex: {destination_hash}") from exc
+        result_event = threading.Event()
+        result_payload: bytes | None = None
+        result_error: Exception | None = None
+
+        def on_download_success(receipt: RequestReceiptType) -> None:
+            nonlocal result_payload, result_error
+            if receipt.response is None:
+                result_error = RuntimeError(f"Reticulum response missing for {normalized_path}")
+            else:
+                result_payload = bytes(receipt.response)
+            result_event.set()
+
+        def on_download_failure(message: str) -> None:
+            nonlocal result_error
+            result_error = RuntimeError(f"Reticulum download failed for {normalized_path}: {message}")
+            result_event.set()
+
+        def on_progress_update(progress: float) -> None:
+            self.logger.info("Reticulum download progress resource=%s progress=%.2f", normalized_path, progress)
+
+        downloader = NomadnetDownloader(
+            self._rns,
+            destination_bytes,
+            normalized_path,
+            None,
+            on_download_success,
+            on_download_failure,
+            on_progress_update,
+            timeout=int(self._request_timeout_seconds),
+        )
+        downloader.download()
+        if not result_event.wait(self._request_timeout_seconds + 30):
+            raise TimeoutError(f"Timed out waiting for Reticulum response for {normalized_path}")
+        if result_error is not None:
+            raise result_error
+        if result_payload is None:
+            raise RuntimeError(f"Reticulum response missing for {normalized_path}")
+        self.logger.info(
+            "Reticulum fetch complete destination=%s resource=%s bytes=%d",
+            destination_hash,
+            normalized_path,
+            len(result_payload),
+        )
+        return result_payload
 
     _reticulum_lock = threading.Lock()
     _reticulum_instance: ReticulumProtocol | None = None
     _link_timeout_seconds = 30.0
     _request_timeout_seconds = 120.0
-    _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt")
+    _required_rns_symbols = ("Reticulum", "Destination", "Link", "Identity", "RequestReceipt", "Transport")
 
     def _load_rns(self) -> RNSModule:
         """Load the Reticulum module, supporting multiple package layouts."""
