@@ -70,8 +70,9 @@ Welcome to the Relay Room. This is the fastest way for podcast creators to get o
 How to run it:
 
 - From the repo, launch the standalone app:
-  - `bin/nomadcast-sample`
-  - Or: `python -m nomadcast_sample`
+  - `python -m nomadcast_sample` (recommended)
+  - Or: `PYTHONPATH=. bin/nomadcast-sample`
+    - Running `bin/nomadcast-sample` without `PYTHONPATH` can fail with `ModuleNotFoundError: No module named 'nomadcast_sample'` because the script lives in `bin/` and Python won’t add the repo root to `sys.path` by default.
 
 What it will do for you:
 
