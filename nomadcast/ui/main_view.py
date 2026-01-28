@@ -7,11 +7,9 @@ from tkinter import ttk
 from typing import Callable
 
 from nomadcast.ui.metrics import (
-    BUTTON_SPACING_X,
     BUTTON_ROW_PAD_Y,
     COMING_SOON_PAD_Y,
     ENTRY_PAD_Y,
-    FUTURE_ROW_PAD_Y,
     HEADER_PAD_Y,
     STATUS_PAD_Y,
     SUBTITLE_PAD_Y,
@@ -29,26 +27,14 @@ class MainView(ttk.Frame):
         master: tk.Misc,
         *,
         on_add: Callable[[], None],
-        on_manage_daemon: Callable[[], None],
-        on_edit_subscriptions: Callable[[], None],
-        on_view_cache: Callable[[], None],
-        on_health_endpoint: Callable[[], None],
         initial_locator: str = "",
     ) -> None:
         super().__init__(master, padding=WINDOW_PADDING)
         self._on_add = on_add
-        self._on_manage_daemon = on_manage_daemon
-        self._on_edit_subscriptions = on_edit_subscriptions
-        self._on_view_cache = on_view_cache
-        self._on_health_endpoint = on_health_endpoint
         self._locator_var = tk.StringVar(value=initial_locator)
         self._status_var = tk.StringVar(value="Ready to add a show.")
         self._locator_input: ttk.Entry | None = None
         self._add_button: ttk.Button | None = None
-        self._daemon_button: ttk.Button | None = None
-        self._subscriptions_button: ttk.Button | None = None
-        self._cache_button: ttk.Button | None = None
-        self._health_button: ttk.Button | None = None
         self._interactive_widgets: list[ttk.Widget] = []
         self._build()
 
@@ -88,43 +74,19 @@ class MainView(ttk.Frame):
         add_button.grid(row=0, column=0, sticky="w")
         self._add_button = add_button
 
-        daemon_button = ttk.Button(button_row, text="Manage daemon", command=self._on_manage_daemon)
-        daemon_button.state(["disabled"])
-        daemon_button.grid(row=0, column=1, sticky="w", padx=BUTTON_SPACING_X)
-        self._daemon_button = daemon_button
-
-        subscriptions_button = ttk.Button(
-            button_row, text="Edit subscriptions", command=self._on_edit_subscriptions
-        )
-        subscriptions_button.state(["disabled"])
-        subscriptions_button.grid(row=0, column=2, sticky="w", padx=BUTTON_SPACING_X)
-        self._subscriptions_button = subscriptions_button
-
-        cache_button = ttk.Button(button_row, text="View cache", command=self._on_view_cache)
-        cache_button.state(["disabled"])
-        cache_button.grid(row=0, column=3, sticky="w", padx=BUTTON_SPACING_X)
-        self._cache_button = cache_button
-
         status_label = ttk.Label(self, textvariable=self._status_var, style="Muted.TLabel")
         status_label.grid(row=4, column=0, sticky="w", pady=STATUS_PAD_Y)
         self._status_label = status_label
 
-        future_row = ttk.Frame(self)
-        future_row.grid(row=5, column=0, sticky="ew", pady=FUTURE_ROW_PAD_Y)
-
-        health_button = ttk.Button(
-            future_row, text="Health endpoint", command=self._on_health_endpoint
-        )
-        health_button.state(["disabled"])
-        health_button.grid(row=0, column=0, sticky="w")
-        self._health_button = health_button
-
         coming_soon = ttk.Label(
             self,
-            text="More features are under development—thanks for trying NomadCast!",
+            text=(
+                "Coming soon: Manage daemon, edit subscriptions, view cache, "
+                "and the local health endpoint."
+            ),
             style="Subtle.TLabel",
         )
-        coming_soon.grid(row=6, column=0, sticky="w", pady=COMING_SOON_PAD_Y)
+        coming_soon.grid(row=5, column=0, sticky="w", pady=COMING_SOON_PAD_Y)
 
         self._interactive_widgets = [locator_input, add_button]
 
@@ -133,29 +95,13 @@ class MainView(ttk.Frame):
 
     def set_callbacks(
         self,
-        *, 
+        *,
         on_add: Callable[[], None],
-        on_manage_daemon: Callable[[], None],
-        on_edit_subscriptions: Callable[[], None],
-        on_view_cache: Callable[[], None],
-        on_health_endpoint: Callable[[], None],
     ) -> None:
         """Update callback handlers for interactive widgets."""
         self._on_add = on_add
-        self._on_manage_daemon = on_manage_daemon
-        self._on_edit_subscriptions = on_edit_subscriptions
-        self._on_view_cache = on_view_cache
-        self._on_health_endpoint = on_health_endpoint
         if self._add_button is not None:
             self._add_button.configure(command=self._on_add)
-        if self._daemon_button is not None:
-            self._daemon_button.configure(command=self._on_manage_daemon)
-        if self._subscriptions_button is not None:
-            self._subscriptions_button.configure(command=self._on_edit_subscriptions)
-        if self._cache_button is not None:
-            self._cache_button.configure(command=self._on_view_cache)
-        if self._health_button is not None:
-            self._health_button.configure(command=self._on_health_endpoint)
 
     def get_locator(self) -> str:
         """Return the locator string from the entry widget."""

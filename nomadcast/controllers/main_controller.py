@@ -3,10 +3,9 @@ from __future__ import annotations
 """Controller for the NomadCast Tkinter UI."""
 
 import logging
-from typing import Callable
 
 from nomadcast.domain.types import LocatorInput, validate_locator
-from nomadcast.services.subscriptions import SubscriptionResult, SubscriptionService
+from nomadcast.services.subscriptions import SubscriptionService
 from nomadcast.ui import UiStatus
 from nomadcast.ui.main_view import MainView
 
@@ -48,29 +47,4 @@ class MainController:
         finally:
             self._view.set_busy(False)
 
-        self._view.set_status(status)
-
-    def on_manage_daemon(self) -> None:
-        """Handle manage daemon action."""
-        self._handle_not_implemented(self._service.manage_daemon)
-
-    def on_edit_subscriptions(self) -> None:
-        """Handle edit subscriptions action."""
-        self._handle_not_implemented(self._service.edit_subscriptions)
-
-    def on_view_cache(self) -> None:
-        """Handle view cache action."""
-        self._handle_not_implemented(self._service.view_cache_status)
-
-    def on_health_endpoint(self) -> None:
-        """Handle health endpoint action."""
-        self._handle_not_implemented(self._service.health_endpoint)
-
-    def _handle_not_implemented(self, action: Callable[[], SubscriptionResult]) -> None:
-        try:
-            result = action()
-        except NotImplementedError as exc:
-            status = UiStatus(message=str(exc), is_error=True)
-        else:
-            status = UiStatus(message=result.message, is_error=result.is_error)
         self._view.set_status(status)

@@ -30,28 +30,3 @@ class SubscriptionService:
 
     def _to_ui_status(self, result: SubscriptionResult) -> UiStatus:
         return UiStatus(message=result.message, is_error=result.is_error)
-
-    def manage_daemon(self) -> UiStatus:
-        """Future roadmap stub: manage the daemon lifecycle."""
-        result = self._subscriptions.manage_daemon()
-        return self._to_ui_status(result)
-
-    def edit_subscriptions(self) -> UiStatus:
-        """Future roadmap stub: edit subscribed feeds."""
-        result = self._subscriptions.edit_subscriptions()
-        return self._to_ui_status(result)
-
-    def view_cache_status(self) -> UiStatus:
-        """Future roadmap stub: view cache status."""
-        result = self._subscriptions.view_cache_status()
-        return self._to_ui_status(result)
-
-    def system_tray_integration(self) -> UiStatus:
-        """Future roadmap stub: system tray integration."""
-        result = self._subscriptions.system_tray_integration()
-        return self._to_ui_status(result)
-
-    def health_endpoint(self) -> UiStatus:
-        """Future roadmap stub: local health endpoint UI."""
-        result = self._subscriptions.health_endpoint()
-        return self._to_ui_status(result)
