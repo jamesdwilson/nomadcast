@@ -3,10 +3,12 @@ from __future__ import annotations
 """NomadCast v0 Tkinter UI helpers."""
 
 from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Protocol
 
 from nomadcast.app_install import maybe_prompt_install_app
+from nomadcast.controllers.main_controller import MainController
 from nomadcast.ui import SubscriptionService, UiStatus
+from nomadcast.ui.main_view import MainView
 
 
 class TrayIcon(Protocol):
@@ -108,7 +110,6 @@ class TkUiLauncher:
     def launch(self) -> None:
         """Launch the Tkinter UI application."""
         import tkinter as tk
-        from tkinter import ttk
         from pathlib import Path
         import platform
         import os
@@ -143,106 +144,35 @@ class TkUiLauncher:
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
-        frame = ttk.Frame(root, padding=24)
-        frame.grid(row=0, column=0, sticky="nsew")
-        frame.columnconfigure(0, weight=1)
-
-        header = ttk.Label(frame, text="NomadCast v0", font=("Segoe UI", 18, "bold"))
-        header.grid(row=0, column=0, sticky="w", pady=(0, 12))
-
-        subtitle = ttk.Label(
-            frame,
-            text=(
-                "Paste a NomadCast locator to subscribe. "
-                "NomadCast will add the feed to your local daemon and open "
-                "your podcast app once the first episode finishes downloading."
-            ),
-            wraplength=640,
+        view = MainView(
+            root,
+            on_add=lambda: None,
+            on_manage_daemon=lambda: None,
+            on_edit_subscriptions=lambda: None,
+            on_view_cache=lambda: None,
+            on_health_endpoint=lambda: None,
+            initial_locator=self._initial_locator,
         )
-        subtitle.grid(row=1, column=0, sticky="w", pady=(0, 16))
+        view.grid(row=0, column=0, sticky="nsew")
 
-        locator_var = tk.StringVar(value=self._initial_locator)
-        locator_input = ttk.Entry(frame, textvariable=locator_var)
-        locator_input.grid(row=2, column=0, sticky="ew", pady=(0, 16))
-
-        button_row = ttk.Frame(frame)
-        button_row.grid(row=3, column=0, sticky="ew", pady=(0, 16))
-        button_row.columnconfigure(0, weight=1)
-
-        status_var = tk.StringVar(value="Ready to add a show.")
-        status_label = ttk.Label(frame, textvariable=status_var, foreground="#b8c7d6")
-        status_label.grid(row=4, column=0, sticky="w")
+        controller = MainController(view=view, service=service, logger=logger)
+        view.set_callbacks(
+            on_add=controller.on_add,
+            on_manage_daemon=controller.on_manage_daemon,
+            on_edit_subscriptions=controller.on_edit_subscriptions,
+            on_view_cache=controller.on_view_cache,
+            on_health_endpoint=controller.on_health_endpoint,
+        )
 
         def set_status(status: UiStatus) -> None:
-            status_var.set(status.message)
-            status_label.configure(foreground="#f28072" if status.is_error else "#b8c7d6")
-
-        def handle_add() -> None:
-            locator = locator_var.get()
-            try:
-                status = service.add_subscription(locator)
-            except ValueError as exc:
-                logger.warning("Invalid locator entered: %s", exc)
-                status = UiStatus(message=f"Invalid locator: {exc}", is_error=True)
-            except OSError as exc:
-                logger.exception("Failed to update config: %s", exc)
-                status = UiStatus(message=f"Failed to update config: {exc}", is_error=True)
-            set_status(status)
-
-        def handle_not_implemented(action: Callable[[], UiStatus]) -> Callable[[], None]:
-            def handler() -> None:
-                try:
-                    status = action()
-                except NotImplementedError as exc:
-                    status = UiStatus(message=str(exc), is_error=True)
-                set_status(status)
-
-            return handler
-
-        add_button = ttk.Button(button_row, text="Add subscription", command=handle_add)
-        add_button.configure(default="active")
-        add_button.grid(row=0, column=0, sticky="w")
-
-        daemon_button = ttk.Button(
-            button_row, text="Manage daemon", command=handle_not_implemented(service.manage_daemon)
-        )
-        daemon_button.state(["disabled"])
-        daemon_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
-
-        subscriptions_button = ttk.Button(
-            button_row, text="Edit subscriptions", command=handle_not_implemented(service.edit_subscriptions)
-        )
-        subscriptions_button.state(["disabled"])
-        subscriptions_button.grid(row=0, column=2, sticky="w", padx=(12, 0))
-
-        cache_button = ttk.Button(
-            button_row, text="View cache", command=handle_not_implemented(service.view_cache_status)
-        )
-        cache_button.state(["disabled"])
-        cache_button.grid(row=0, column=3, sticky="w", padx=(12, 0))
-
-        future_row = ttk.Frame(frame)
-        future_row.grid(row=5, column=0, sticky="ew", pady=(8, 0))
-
-        health_button = ttk.Button(
-            future_row, text="Health endpoint", command=handle_not_implemented(service.health_endpoint)
-        )
-        health_button.state(["disabled"])
-        health_button.grid(row=0, column=0, sticky="w")
+            view.set_status(status)
 
         self._center_window(root)
         try:
             root.attributes("-alpha", 0.0)
         except tk.TclError:
             pass
-        locator_input.focus()
-        root.bind("<Return>", lambda event: add_button.invoke())
-        coming_soon = ttk.Label(
-            frame,
-            text="More features are under development—thanks for trying NomadCast!",
-            foreground="#8ea3b7",
-        )
-        coming_soon.grid(row=6, column=0, sticky="w", pady=(16, 0))
+        view.focus_first()
 
         def toggle_visibility() -> None:
             """Toggle the Tk window visibility with a fade animation."""
