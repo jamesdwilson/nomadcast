@@ -211,7 +211,7 @@ def _replace_identity_in_tree(destination_root: Path, identity: str) -> None:
     for file_path in _iter_text_files(destination_root):
         try:
             content = file_path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
         updated = content.replace(PLACEHOLDER_IDENTITY, identity)
         if updated != content:
@@ -227,7 +227,7 @@ def _replace_show_name_in_tree(destination_root: Path, show_name: str, show_name
     for file_path in _iter_text_files(destination_root):
         try:
             content = file_path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
         updated = content
         for placeholder, replacement in replacements.items():
