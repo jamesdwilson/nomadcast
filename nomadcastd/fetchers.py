@@ -10,106 +10,14 @@ import importlib
 import importlib.util
 import io
 import logging
-import os
 import time
 import threading
 from dataclasses import dataclass
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable, Protocol, TypeAlias
+from typing import Protocol
 
-
-class IdentityProtocol(Protocol):
-    @staticmethod
-    def recall(destination_bytes: bytes, from_identity_hash: bool = False) -> "IdentityProtocol | None":
-        ...
-
-
-class RequestReceiptProtocol(Protocol):
-    READY: int
-    FAILED: int
-    SENT: int
-    DELIVERED: int
-    RECEIVING: int
-    metadata: dict | None
-    response: bytes | None
-    progress: float
-
-    def get_status(self) -> int:
-        ...
-
-
-class LinkProtocol(Protocol):
-    ACTIVE: int
-    CLOSED: int
-    status: int
-
-    def request(
-        self,
-        path: str,
-        data: bytes | None = None,
-        response_callback: Callable[[RequestReceiptProtocol], None] | None = None,
-        failed_callback: Callable[[RequestReceiptProtocol], None] | None = None,
-        progress_callback: Callable[[RequestReceiptProtocol], None] | None = None,
-        timeout: float | None = None,
-    ) -> RequestReceiptProtocol | bool:
-        ...
-
-    def teardown(self) -> None:
-        ...
-
-
-class TransportProtocol(Protocol):
-    @staticmethod
-    def has_path(destination_hash: bytes) -> bool:
-        ...
-
-    @staticmethod
-    def request_path(destination_hash: bytes) -> None:
-        ...
-
-
-class DestinationProtocol(Protocol):
-    OUT: int
-    SINGLE: int
-
-    def __init__(
-        self,
-        identity: IdentityProtocol | None,
-        direction: int,
-        dest_type: int,
-        app_name: str,
-        *aspects: str,
-    ) -> None:
-        ...
-
-
-class ReticulumProtocol(Protocol):
-    def __init__(self, config_dir: str | None) -> None:
-        ...
-
-if TYPE_CHECKING:
-    from RNS import Destination as DestinationType
-    from RNS import Identity as IdentityType
-    from RNS import Link as LinkType
-    from RNS import RequestReceipt as RequestReceiptType
-    from RNS import Reticulum as ReticulumType
-    from RNS import Transport as TransportType
-else:
-    DestinationType: TypeAlias = DestinationProtocol
-    IdentityType: TypeAlias = IdentityProtocol
-    LinkType: TypeAlias = LinkProtocol
-    RequestReceiptType: TypeAlias = RequestReceiptProtocol
-    ReticulumType: TypeAlias = ReticulumProtocol
-    TransportType: TypeAlias = TransportProtocol
-
-
-class RNSModule(Protocol):
-    Reticulum: type[ReticulumType]
-    Destination: type[DestinationType]
-    Link: type[LinkType]
-    Identity: type[IdentityType]
-    RequestReceipt: type[RequestReceiptType]
-    Transport: type[TransportProtocol]
+from .reticulum_downloader import NomadnetDownloader
+from .reticulum_types import DestinationType, LinkType, RequestReceiptType, ReticulumProtocol, RNSModule
 
 
 class Fetcher(Protocol):
@@ -134,110 +42,6 @@ class Fetcher(Protocol):
         ...
 
 
-nomadnet_cached_links: dict[bytes, LinkType] = {}
-
-
-class NomadnetDownloader:
-    def __init__(
-        self,
-        rns: RNSModule,
-        destination_hash: bytes,
-        path: str,
-        data: bytes | None,
-        on_download_success: Callable[[RequestReceiptType], None],
-        on_download_failure: Callable[[str], None],
-        on_progress_update: Callable[[float], None],
-        timeout: int | None = None,
-    ) -> None:
-        self.app_name = "nomadnetwork"
-        self.aspects = "node"
-        self.rns = rns
-        self.destination_hash = destination_hash
-        self.path = path
-        self.data = data
-        self.timeout = timeout
-        self.on_download_success = on_download_success
-        self.on_download_failure = on_download_failure
-        self.on_progress_update = on_progress_update
-
-    # setup link to destination and request download
-    def download(self, path_lookup_timeout: int = 15, link_establishment_timeout: int = 15) -> None:
-        # use existing established link if it's active
-        if self.destination_hash in nomadnet_cached_links:
-            link = nomadnet_cached_links[self.destination_hash]
-            if link.status is self.rns.Link.ACTIVE:
-                print("[NomadnetDownloader] using existing link for request")
-                self.link_established(link)
-                return
-
-        # determine when to timeout
-        timeout_after_seconds = time.time() + path_lookup_timeout
-
-        # check if we have a path to the destination
-        if not self.rns.Transport.has_path(self.destination_hash):
-            # we don't have a path, so we need to request it
-            self.rns.Transport.request_path(self.destination_hash)
-
-            # wait until we have a path, or give up after the configured timeout
-            while not self.rns.Transport.has_path(self.destination_hash) and time.time() < timeout_after_seconds:
-                time.sleep(0.1)
-
-        # if we still don't have a path, we can't establish a link, so bail out
-        if not self.rns.Transport.has_path(self.destination_hash):
-            self.on_download_failure("Could not find path to destination.")
-            return
-
-        # create destination to nomadnet node
-        identity = self.rns.Identity.recall(self.destination_hash)
-        destination = self.rns.Destination(
-            identity,
-            self.rns.Destination.OUT,
-            self.rns.Destination.SINGLE,
-            self.app_name,
-            self.aspects,
-        )
-
-        # create link to destination
-        print("[NomadnetDownloader] establishing new link for request")
-        link = self.rns.Link(destination, established_callback=self.link_established)
-
-        # determine when to timeout
-        timeout_after_seconds = time.time() + link_establishment_timeout
-
-        # wait until we have established a link, or give up after the configured timeout
-        while link.status is not self.rns.Link.ACTIVE and time.time() < timeout_after_seconds:
-            time.sleep(0.1)
-
-        # if we still haven't established a link, bail out
-        if link.status is not self.rns.Link.ACTIVE:
-            self.on_download_failure("Could not establish link to destination.")
-
-    # link to destination was established, we should now request the download
-    def link_established(self, link: LinkType) -> None:
-        # cache link for using in future requests
-        nomadnet_cached_links[self.destination_hash] = link
-
-        # request download over link
-        link.request(
-            self.path,
-            data=self.data,
-            response_callback=self.on_response,
-            failed_callback=self.on_failed,
-            progress_callback=self.on_progress,
-            timeout=self.timeout,
-        )
-
-    # handle successful download
-    def on_response(self, request_receipt: RequestReceiptType) -> None:
-        self.on_download_success(request_receipt)
-
-    # handle failure
-    def on_failed(self, request_receipt: RequestReceiptType | None = None) -> None:
-        self.on_download_failure("request_failed")
-
-    # handle download progress
-    def on_progress(self, request_receipt: RequestReceiptType) -> None:
-        self.on_progress_update(request_receipt.progress)
 
 
 @dataclass
@@ -672,15 +476,13 @@ class ReticulumFetcher(Fetcher):
 
         # handle buffered reader response
         if isinstance(response, io.BufferedReader):
-
-            # get file name from metadata
-            file_name = "downloaded_file"
             metadata = request_receipt.metadata
             if metadata is not None and "name" in metadata:
-                file_path = metadata["name"].decode("utf-8")
-                file_name = os.path.basename(file_path)
+                self.logger.debug(
+                    "Reticulum buffered response filename=%s",
+                    metadata["name"].decode("utf-8"),
+                )
 
-            # get file data
             file_data: bytes = response.read()
 
             return file_data
@@ -692,18 +494,17 @@ class ReticulumFetcher(Fetcher):
             file_data: bytes = response[0]
             metadata: dict = response[1]
 
-            # get file name from metadata
-            file_name = "downloaded_file"
-            if metadata is not None and "name" in metadata:
-                file_path = metadata["name"].decode("utf-8")
-                file_name = os.path.basename(file_path)
+            if "name" in metadata:
+                self.logger.debug(
+                    "Reticulum list response filename=%s",
+                    metadata["name"].decode("utf-8"),
+                )
 
             return file_data
 
         # try using original response format
         # unsure if this is actually used anymore now that a buffered reader is provided
         # have left here just in case...
-        file_name: str = response[0]
         file_data: bytes = response[1]
         return file_data
 
