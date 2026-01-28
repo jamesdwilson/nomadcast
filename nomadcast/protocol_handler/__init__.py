@@ -7,7 +7,6 @@ import platform
 from nomadcast.protocol_handler.linux import register_protocol_handler as _register_linux
 from nomadcast.protocol_handler.macos import register_protocol_handler as _register_macos
 from nomadcast.protocol_handler.shared import LOGGER, STAMP_PATH
-from nomadcast.protocol_handler.windows import register_protocol_handler as _register_windows
 
 
 def ensure_protocol_handler_registered() -> bool:
@@ -26,6 +25,10 @@ def register_protocol_handler() -> bool:
     """Register the URL scheme handler for the current platform."""
     system = platform.system()
     if system == "Windows":
+        from nomadcast.protocol_handler.windows import (
+            register_protocol_handler as _register_windows,
+        )
+
         return _register_windows()
     if system == "Darwin":
         return _register_macos()
