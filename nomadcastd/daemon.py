@@ -12,6 +12,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from nomadcastd.config import NomadCastConfig, load_config, load_subscriptions
@@ -56,6 +57,30 @@ class ShowContext:
     media_pending: set[str] = field(default_factory=set)
     next_refresh_time: float = 0.0
     order_map: dict[str, int] = field(default_factory=dict)
+
+
+class JobType(Enum):
+    """Types of background work handled by the daemon worker thread."""
+
+    STOP = "stop"
+    REFRESH = "refresh"
+    MEDIA = "media"
+
+
+@dataclass(frozen=True)
+class DaemonJob:
+    """Queue item describing a unit of background work.
+
+    Attributes:
+        type: The kind of work to perform.
+        show_id: The "<destination_hash>:<show_name>" identifier for the show.
+        payload: Optional job-specific payload. For media jobs, this is the
+            episode filename to download; otherwise None.
+    """
+
+    type: JobType
+    show_id: str
+    payload: str | None = None
 
 
 class NomadCastDaemon:
@@ -104,7 +129,7 @@ class NomadCastDaemon:
                 )
                 self.fetcher = MockFetcher()
         self.show_contexts: dict[str, ShowContext] = {}
-        self.queue: queue.Queue[tuple[str, str, str | None]] = queue.Queue()
+        self.queue: queue.Queue[DaemonJob] = queue.Queue()
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
 
@@ -138,7 +163,7 @@ class NomadCastDaemon:
             shutdown if background work is blocked.
         """
         self.stop_event.set()
-        self.queue.put(("stop", "", None))
+        self.queue.put(DaemonJob(JobType.STOP, ""))
         self.worker_thread.join(timeout=5)
         self.logger.debug("Daemon stop complete")
 
@@ -249,7 +274,7 @@ class NomadCastDaemon:
             self.logger.info("Enqueued startup refresh for %s", show_id)
         else:
             self.logger.debug("Enqueued refresh for %s", show_id)
-        self.queue.put(("refresh", show_id, None))
+        self.queue.put(DaemonJob(JobType.REFRESH, show_id))
 
     def _queue_initial_refreshes(self) -> None:
         """Queue immediate refreshes for all shows on startup."""
@@ -283,7 +308,7 @@ class NomadCastDaemon:
                 return
             context.media_pending.add(filename)
         self.logger.debug("Enqueued media fetch for %s/%s", show_id, filename)
-        self.queue.put(("media", show_id, filename))
+        self.queue.put(DaemonJob(JobType.MEDIA, show_id, filename))
 
     def get_cached_rss(self, show_id: str) -> bytes | None:
         """Return cached client RSS bytes for a show, if present.
@@ -348,27 +373,29 @@ class NomadCastDaemon:
         """Process queued jobs until stopped.
 
         Queue Semantics:
-            Processes jobs in FIFO order. "stop" jobs terminate the loop; other
-            jobs are dispatched to refresh or media handlers.
+            Processes jobs in FIFO order. STOP jobs terminate the loop; REFRESH
+            jobs fetch RSS, and MEDIA jobs download episode files.
 
         Thread Safety:
             Runs on the dedicated worker thread only.
         """
         while not self.stop_event.is_set():
             try:
-                job_type, show_id, payload = self.queue.get(timeout=0.2)
+                job = self.queue.get(timeout=0.2)
             except queue.Empty:
                 continue
-            if job_type == "stop":
-                self.logger.debug("Worker loop received stop signal")
-                return
-            if job_type == "refresh":
-                self.logger.debug("Worker handling refresh for %s", show_id)
-                self._handle_refresh(show_id)
-            elif job_type == "media":
-                if payload:
-                    self.logger.debug("Worker handling media for %s/%s", show_id, payload)
-                    self._handle_media_fetch(show_id, payload)
+            match job.type:
+                case JobType.STOP:
+                    self.logger.debug("Worker loop received stop signal")
+                    return
+                case JobType.REFRESH:
+                    self.logger.debug("Worker handling refresh for %s", job.show_id)
+                    self._handle_refresh(job.show_id)
+                case JobType.MEDIA:
+                    filename = job.payload
+                    if filename:
+                        self.logger.debug("Worker handling media for %s/%s", job.show_id, filename)
+                        self._handle_media_fetch(job.show_id, filename)
 
     def _handle_refresh(self, show_id: str) -> None:
         """Fetch the publisher RSS, update cache, and queue media downloads.
