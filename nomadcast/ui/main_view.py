@@ -7,6 +7,7 @@ from tkinter import ttk
 from typing import Callable
 
 from nomadcast.ui.metrics import (
+    BUTTON_SPACING_X,
     BUTTON_ROW_PAD_Y,
     COMING_SOON_PAD_Y,
     ENTRY_PAD_Y,
@@ -54,7 +55,7 @@ class MainView(ttk.Frame):
     def _build(self) -> None:
         self.columnconfigure(0, weight=1)
 
-        header = ttk.Label(self, text="NomadCast v0", font=("Segoe UI", 18, "bold"))
+        header = ttk.Label(self, text="NomadCast v0", style="Title.TLabel")
         header.grid(row=0, column=0, sticky="w", pady=HEADER_PAD_Y)
 
         subtitle = ttk.Label(
@@ -65,6 +66,7 @@ class MainView(ttk.Frame):
                 "your podcast app once the first episode finishes downloading."
             ),
             wraplength=SUBTITLE_WRAP,
+            style="Subtitle.TLabel",
         )
         subtitle.grid(row=1, column=0, sticky="w", pady=SUBTITLE_PAD_Y)
 
@@ -76,29 +78,34 @@ class MainView(ttk.Frame):
         button_row.grid(row=3, column=0, sticky="ew", pady=BUTTON_ROW_PAD_Y)
         button_row.columnconfigure(0, weight=1)
 
-        add_button = ttk.Button(button_row, text="Add subscription", command=self._on_add)
+        add_button = ttk.Button(
+            button_row,
+            text="Add subscription",
+            command=self._on_add,
+            style="Primary.TButton",
+        )
         add_button.configure(default="active")
         add_button.grid(row=0, column=0, sticky="w")
         self._add_button = add_button
 
         daemon_button = ttk.Button(button_row, text="Manage daemon", command=self._on_manage_daemon)
         daemon_button.state(["disabled"])
-        daemon_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        daemon_button.grid(row=0, column=1, sticky="w", padx=BUTTON_SPACING_X)
         self._daemon_button = daemon_button
 
         subscriptions_button = ttk.Button(
             button_row, text="Edit subscriptions", command=self._on_edit_subscriptions
         )
         subscriptions_button.state(["disabled"])
-        subscriptions_button.grid(row=0, column=2, sticky="w", padx=(12, 0))
+        subscriptions_button.grid(row=0, column=2, sticky="w", padx=BUTTON_SPACING_X)
         self._subscriptions_button = subscriptions_button
 
         cache_button = ttk.Button(button_row, text="View cache", command=self._on_view_cache)
         cache_button.state(["disabled"])
-        cache_button.grid(row=0, column=3, sticky="w", padx=(12, 0))
+        cache_button.grid(row=0, column=3, sticky="w", padx=BUTTON_SPACING_X)
         self._cache_button = cache_button
 
-        status_label = ttk.Label(self, textvariable=self._status_var, foreground="#b8c7d6")
+        status_label = ttk.Label(self, textvariable=self._status_var, style="Muted.TLabel")
         status_label.grid(row=4, column=0, sticky="w", pady=STATUS_PAD_Y)
         self._status_label = status_label
 
@@ -115,7 +122,7 @@ class MainView(ttk.Frame):
         coming_soon = ttk.Label(
             self,
             text="More features are under development—thanks for trying NomadCast!",
-            foreground="#8ea3b7",
+            style="Subtle.TLabel",
         )
         coming_soon.grid(row=6, column=0, sticky="w", pady=COMING_SOON_PAD_Y)
 
@@ -157,7 +164,7 @@ class MainView(ttk.Frame):
     def set_status(self, status: UiStatus) -> None:
         """Update the status label using the provided UiStatus."""
         self._status_var.set(status.message)
-        self._status_label.configure(foreground="#f28072" if status.is_error else "#b8c7d6")
+        self._status_label.configure(style="Error.TLabel" if status.is_error else "Muted.TLabel")
 
     def set_busy(self, is_busy: bool) -> None:
         """Enable or disable interactive widgets while busy."""

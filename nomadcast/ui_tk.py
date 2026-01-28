@@ -9,6 +9,7 @@ from nomadcast.app_install import maybe_prompt_install_app
 from nomadcast.controllers.main_controller import MainController
 from nomadcast.ui import SubscriptionService, UiStatus
 from nomadcast.ui.main_view import MainView
+from nomadcast.ui.style import init_style
 
 
 class TrayIcon(Protocol):
@@ -110,6 +111,7 @@ class TkUiLauncher:
     def launch(self) -> None:
         """Launch the Tkinter UI application."""
         import tkinter as tk
+        from tkinter import ttk
         from pathlib import Path
         import platform
         import os
@@ -132,6 +134,7 @@ class TkUiLauncher:
         root.title(self._config.title)
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
+        init_style(ttk.Style(root))
         icon_path = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
         if icon_path.exists():
             icon_image = tk.PhotoImage(file=str(icon_path))
