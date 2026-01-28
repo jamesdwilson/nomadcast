@@ -2,7 +2,13 @@ from __future__ import annotations
 
 """NomadCast v0 Tkinter UI helpers."""
 
+import logging
+import os
 from dataclasses import dataclass
+from pathlib import Path
+import platform
+import tkinter as tk
+from tkinter import ttk
 
 from nomadcast.app_install import maybe_prompt_install_app
 from nomadcast.controllers.main_controller import MainController
@@ -28,16 +34,14 @@ class TkUiLauncher:
     def __init__(self, initial_locator: str | None = None, config: TkUiConfig | None = None) -> None:
         self._initial_locator = initial_locator or ""
         self._config = config or TkUiConfig()
+        self._root: tk.Tk | None = None
+        self._animator: TkWindowAnimator | None = None
+        self._tray_controller: TkTrayController | None = None
+        self._icon_path: Path | None = None
+        self._view: MainView | None = None
 
     def launch(self) -> None:
         """Launch the Tkinter UI application."""
-        import tkinter as tk
-        from tkinter import ttk
-        from pathlib import Path
-        import platform
-        import os
-        import logging
-
         service = SubscriptionService()
         logger = logging.getLogger(__name__)
 
@@ -45,6 +49,34 @@ class TkUiLauncher:
             os.environ.setdefault("CFBundleName", "NomadCast")
             os.environ.setdefault("CFBundleDisplayName", "NomadCast")
 
+        root = self._configure_root()
+        self._root = root
+        animator = TkWindowAnimator(root)
+        animator.apply_tray_window_hints()
+        self._animator = animator
+        view = self._build_view(root)
+        self._view = view
+        self._wire_controller(view, service, logger)
+        animator.center_window()
+        try:
+            root.attributes("-alpha", 0.0)
+        except tk.TclError:
+            pass
+        view.focus_first()
+
+        tray_controller = self._setup_tray(root, animator, view, self._icon_path)
+        self._tray_controller = tray_controller
+
+        root.protocol("WM_DELETE_WINDOW", lambda: root.after(0, self._toggle_visibility))
+
+        if not tray_controller.start():
+            animator.center_window()
+            animator.animate_visibility(show=True)
+        root.after(0, lambda: maybe_prompt_install_app(root))
+        root.mainloop()
+
+    def _configure_root(self) -> tk.Tk:
+        """Create and configure the root Tk instance."""
         root = tk.Tk()
         root.tk.call("tk", "appname", "NomadCast")
         if platform.system() == "Darwin":
@@ -56,19 +88,18 @@ class TkUiLauncher:
         root.geometry(self._config.window_size)
         root.configure(background="#11161e")
         init_style(ttk.Style(root))
-        icon_path = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
-        if icon_path.exists():
-            icon_image = tk.PhotoImage(file=str(icon_path))
+        self._icon_path = Path(__file__).resolve().parent.parent / "assets" / "nomadcast-logo.png"
+        if self._icon_path.exists():
+            icon_image = tk.PhotoImage(file=str(self._icon_path))
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
-
         root.withdraw()
-        animator = TkWindowAnimator(root)
-        animator.apply_tray_window_hints()
+        return root
 
+    def _build_view(self, root: tk.Tk) -> MainView:
+        """Build the main view for the root window."""
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
-
         view = MainView(
             root,
             on_add=lambda: None,
@@ -79,7 +110,15 @@ class TkUiLauncher:
             initial_locator=self._initial_locator,
         )
         view.grid(row=0, column=0, sticky="nsew")
+        return view
 
+    def _wire_controller(
+        self,
+        view: MainView,
+        service: SubscriptionService,
+        logger: logging.Logger,
+    ) -> MainController:
+        """Connect the view callbacks to the main controller."""
         controller = MainController(view=view, service=service, logger=logger)
         view.set_callbacks(
             on_add=controller.on_add,
@@ -88,48 +127,52 @@ class TkUiLauncher:
             on_view_cache=controller.on_view_cache,
             on_health_endpoint=controller.on_health_endpoint,
         )
+        return controller
+
+    def _setup_tray(
+        self,
+        root: tk.Tk,
+        animator: TkWindowAnimator,
+        view: MainView,
+        icon_path: Path | None,
+    ) -> TkTrayController:
+        """Create and configure the tray controller."""
+        _ = animator
 
         def set_status(status: UiStatus) -> None:
             view.set_status(status)
 
-        animator.center_window()
-        try:
-            root.attributes("-alpha", 0.0)
-        except tk.TclError:
-            pass
-        view.focus_first()
-
-        def toggle_visibility() -> None:
-            """Toggle the Tk window visibility with a fade animation."""
-            is_visible = root.state() != "withdrawn"
-            if is_visible:
-                animator.animate_visibility(show=False)
-            else:
-                animator.center_window()
-                animator.animate_visibility(show=True)
-
         tray_controller = TkTrayController(icon_path=icon_path, set_status=set_status)
+        tray_controller.bind_toggle(self._schedule_toggle)
+        tray_controller.bind_quit(self._schedule_quit)
+        return tray_controller
 
-        def schedule_toggle() -> None:
-            """Schedule a toggle from the tray thread."""
-            root.after(0, toggle_visibility)
+    def _toggle_visibility(self) -> None:
+        """Toggle the Tk window visibility with a fade animation."""
+        if not self._root or not self._animator:
+            return
+        is_visible = self._root.state() != "withdrawn"
+        if is_visible:
+            self._animator.animate_visibility(show=False)
+        else:
+            self._animator.center_window()
+            self._animator.animate_visibility(show=True)
 
-        def schedule_quit() -> None:
-            """Schedule a quit from the tray thread."""
-            root.after(0, handle_quit)
+    def _schedule_toggle(self) -> None:
+        """Schedule a toggle from the tray thread."""
+        if not self._root:
+            return
+        self._root.after(0, self._toggle_visibility)
 
-        def handle_quit() -> None:
-            """Quit the UI without stopping the daemon."""
-            tray_controller.stop()
-            root.quit()
+    def _schedule_quit(self) -> None:
+        """Schedule a quit from the tray thread."""
+        if not self._root:
+            return
+        self._root.after(0, self._handle_quit)
 
-        tray_controller.bind_toggle(schedule_toggle)
-        tray_controller.bind_quit(schedule_quit)
-
-        root.protocol("WM_DELETE_WINDOW", lambda: root.after(0, toggle_visibility))
-
-        if not tray_controller.start():
-            animator.center_window()
-            animator.animate_visibility(show=True)
-        root.after(0, lambda: maybe_prompt_install_app(root))
-        root.mainloop()
+    def _handle_quit(self) -> None:
+        """Quit the UI without stopping the daemon."""
+        if self._tray_controller:
+            self._tray_controller.stop()
+        if self._root:
+            self._root.quit()
