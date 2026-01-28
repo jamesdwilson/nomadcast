@@ -314,6 +314,9 @@ NomadCast is split into a UI package and a daemon package:
   - `fetchers.py` defines the Reticulum fetcher interface (with a mock for tests).
 
 Tests live in `tests/` and focus on parsing, RSS rewriting, and HTTP range behavior.
+
+For readability-first conventions (package boundaries, dependency rules, docstrings, and comments), see
+[`docs/architecture.md`](docs/architecture.md).
 </details>
 
 <details>
