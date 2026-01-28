@@ -73,7 +73,7 @@ class SampleCreatorApp:
         root.configure(background="#11161e")
 
         # Use the shared NomadCast icon if it's available in the repo tree.
-        icon_path = Path(__file__).resolve().parents[2] / "assets" / "nomadcast-logo.png"
+        icon_path = Path(__file__).resolve().parents[1] / "assets" / "nomadcast-logo.png"
         if icon_path.exists():
             icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, icon_image)
