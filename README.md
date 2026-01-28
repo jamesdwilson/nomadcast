@@ -23,9 +23,11 @@ In other words: you subscribe to a normal `localhost` URL, and your podcast app 
 
 One-line context: **Reticulum** is the resilient, off-grid networking layer underneath all of this—learn more at https://reticulum.network/. 
 
-**Default feature (entirely optional):** in the spirit of Reticulum’s decentralized ethos, NomadCast ships with an **on-demand mirroring** script that turns any show into a constellation of sovereign mirrors. It is the bright, cooperative future of local-first media: anyone can pull a copy into their own NomadNet storage, light it up for their community, and keep the signal alive even when the wider network flickers. Run it manually when you want a fresh sync, or wire it into automation — it’s there by default, but only if you choose to use it.
+**Default feature (entirely optional):** mirroring is baked into streaming. When you listen, NomadCast already downloads the RSS and media files into its local cache. With mirroring enabled, NomadCast simply **exposes those cached files to Nomad Network** via symlinks and keeps a tiny index page up to date. It is the bright, cooperative future of local-first media: anyone can stream a show, light up a mirror, and keep the signal alive even when the wider network flickers.
 
-Thanks to this repo—and that mirroring capability—podcasts can now be **fully decentralized**, with no single point of failure and no gatekeepers between you and the signal.
+Mirroring warning (read before enabling): “Mirroring is how we build a resilient, decentralized future. NomadCast will download and store episodes on disk and share them to other Reticulum peers via your Nomad Network pages, so only turn this on if you are good with the disk use and serving that content onward.”
+
+Thanks to this repo—and the frictionless mirroring built into streaming—podcasts can now be **fully decentralized**, with no single point of failure and no gatekeepers between you and the signal.
 
 ---
 
@@ -186,23 +188,40 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 </details>
 
 <details>
-<summary><strong>On-demand mirroring script</strong></summary>
+<summary><strong>Nomad Network mirroring (automatic)</strong></summary>
 
-NomadCast includes a one-shot mirroring script for operators who want explicit, on-demand syncing. You can
-run it by hand or wire it into any scheduler or automation you prefer; it will still respect the
-freshness limiter so it only checks the upstream feed when the mirror is older than N hours.
+Mirroring is an **implicit** feature of streaming. When you listen, NomadCast already caches RSS and
+media under its normal storage path. If mirroring is enabled, it simply exposes those cached files to
+Nomad Network via symlinks and publishes a tiny index page so other Reticulum peers can discover
+mirrored feeds.
 
-1. Copy `examples/mirror_podcast.py` to a location of your choice.
-2. Edit the configuration block at the top (parent identity hash + show name, RSS URL, mirror name, and freshness hours).
-3. Run it whenever you want to refresh your mirror (manually or via automation):
+How it works:
 
-```bash
-python3 mirror_podcast.py
-```
+- RSS and media are **not copied**. NomadCast creates symlinks from your Nomad Network storage tree
+  to the existing NomadCast cache.
+- The index page lives at `/nomadcast/index.mu` and lists subscriptions **in config order**.
+- The page format is:
+  - Top header: `NomadCast`
+  - One short line: `subscriptions on this node`
+  - A link to the GitHub repo
+  - Then list entries (config order) rendered as: `Title [mirror] [source]`.
+- `[mirror]` points to the Nomad Network hosted RSS (the symlinked RSS path).
+- `[source]` points to the original subscription locator you saved in config.
 
-The script mirrors episodes into `~/.nomadnetwork/storage/files/<MirrorName>/media`, stores a tiny
-`last_sync` timestamp, regenerates `feed.rss` only when changes are detected, and annotates the feed
-so listeners can see it is a mirror with a link back to the parent show.
+First run prompt:
+
+- On the first interactive run, NomadCast asks whether you want mirroring enabled by default for all
+  podcasts. The answer is stored in your config so you only see it once.
+- If the process is non-interactive, NomadCast defaults to mirroring **on** and logs how to disable it.
+
+Per-feed override:
+
+- Use `--no-mirror` when subscribing to prevent NomadCast from exposing that feed via Nomad Network
+  (it still caches locally for playback).
+
+Mirroring warning: “Mirroring is how we build a resilient, decentralized future. NomadCast will download
+and store episodes on disk and share them to other Reticulum peers via your Nomad Network pages, so only
+turn this on if you are good with the disk use and serving that content onward.”
 </details>
 
 <details>
@@ -430,6 +449,9 @@ public_host =
 [subscriptions]
 uri =
 
+[mirroring]
+nomadnet_root = ~/.nomadnetwork/storage
+
 [reticulum]
 config_dir =
 destination_app = nomadnetwork
@@ -439,6 +461,9 @@ destination_aspects = node
 Reticulum/NomadNet considerations:
 
 - `listen_host`/`listen_port` control the local HTTP feed server. Leave the default unless you need to bind a different port or non-localhost interface.
+- `mirroring.enabled` (written after the first-run prompt) controls whether NomadCast exposes cached RSS/media to Nomad Network by default.
+- `mirroring.nomadnet_root` defines the Nomad Network storage root used for symlinks and `/nomadcast/index.mu`.
+- `mirroring.no_mirror_uri` can be repeated to opt specific subscriptions out of mirroring.
 - NomadCast relies on Reticulum itself to load and apply interface settings. By default Reticulum reads `~/.reticulum/config`, or you can point NomadCast at a different directory via `reticulum.config_dir`.
 - `destination_app`/`destination_aspects` control which Reticulum destination is used for NomadNet resources. MeshChat-style URLs (identity hash + `/file/...`) use `nomadnetwork` + `node`, which is now the default.
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
@@ -490,6 +515,12 @@ To add a subscription from the command line (simulating a protocol handler click
 python -m nomadcast "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 
+To opt a single feed out of Nomad Network exposure during subscribe:
+
+```bash
+python -m nomadcast --no-mirror "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+```
+
 To manage subscriptions directly with the daemon (handy for scripts or headless nodes):
 
 Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscriptions from the daemon's config:
@@ -497,6 +528,7 @@ Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscr
 ```bash
 python -m nomadcastd feeds ls
 python -m nomadcastd feeds add "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+python -m nomadcastd feeds add --no-mirror "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 python -m nomadcastd feeds rm "a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 

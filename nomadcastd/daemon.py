@@ -9,6 +9,7 @@ queue used to serialize background work.
 
 import logging
 import queue
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -23,6 +24,11 @@ from nomadcastd.parsing import (
     encode_show_path,
     parse_nomadcast_media_url,
     parse_subscription_uri,
+)
+from nomadcastd.mirroring import (
+    resolve_mirroring_enabled,
+    sync_nomadnet_mirror,
+    write_nomadnet_index,
 )
 from nomadcastd.rss import parse_rss_items, rewrite_rss
 from nomadcastd.storage import (
@@ -129,9 +135,11 @@ class NomadCastDaemon:
                 )
                 self.fetcher = MockFetcher()
         self.show_contexts: dict[str, ShowContext] = {}
+        self.subscriptions: list[Subscription] = []
         self.queue: queue.Queue[DaemonJob] = queue.Queue()
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self.default_mirroring_enabled = True
 
     def start(self) -> None:
         """Start the daemon worker and ensure storage exists.
@@ -147,7 +155,17 @@ class NomadCastDaemon:
         # Prepare storage layout described in README.
         self.config.storage_path.mkdir(parents=True, exist_ok=True)
         self.logger.debug("Storage path ensured at %s", self.config.storage_path)
+        self.default_mirroring_enabled = resolve_mirroring_enabled(
+            self.config,
+            is_interactive=sys.stdin.isatty(),
+            logger=self.logger,
+        )
         self.reload_config()
+        write_nomadnet_index(
+            self.config,
+            self.subscriptions,
+            default_mirroring_enabled=self.default_mirroring_enabled,
+        )
         self.worker_thread.start()
         self._queue_initial_refreshes()
 
@@ -194,6 +212,7 @@ class NomadCastDaemon:
             except ValueError as exc:
                 self.logger.warning("Skipping invalid subscription %s: %s", uri, exc)
 
+        self.subscriptions = subscriptions
         new_contexts: dict[str, ShowContext] = {}
         # Build show contexts keyed by destination_hash:show_name (README:
         # destination hash is authoritative; show name is cosmetic but part
@@ -226,6 +245,11 @@ class NomadCastDaemon:
                 )
         self.show_contexts = new_contexts
         self.logger.info("Loaded %d subscription(s)", len(subscriptions))
+        write_nomadnet_index(
+            self.config,
+            self.subscriptions,
+            default_mirroring_enabled=self.default_mirroring_enabled,
+        )
 
     def enqueue_refresh(self, show_id: str, *, force: bool = False) -> None:
         """Request an RSS refresh for a show.
@@ -494,6 +518,16 @@ class NomadCastDaemon:
             )
             # Rebuild client RSS after refresh per README rewrite rules.
             self._rebuild_client_rss(context)
+            sync_nomadnet_mirror(
+                self.config,
+                context.subscription,
+                default_mirroring_enabled=self.default_mirroring_enabled,
+            )
+            write_nomadnet_index(
+                self.config,
+                self.subscriptions,
+                default_mirroring_enabled=self.default_mirroring_enabled,
+            )
             self.logger.info("Refreshed RSS for %s", show_id)
         except Exception as exc:
             self._register_failure(context, str(exc))
@@ -598,6 +632,16 @@ class NomadCastDaemon:
                 save_show_state(context.state_path, context.state)
             self.logger.info("Updated cached episodes for %s/%s", show_id, filename)
             self._rebuild_client_rss(context)
+            sync_nomadnet_mirror(
+                self.config,
+                context.subscription,
+                default_mirroring_enabled=self.default_mirroring_enabled,
+            )
+            write_nomadnet_index(
+                self.config,
+                self.subscriptions,
+                default_mirroring_enabled=self.default_mirroring_enabled,
+            )
             self.logger.info("Cached media %s for %s", filename, show_id)
         except Exception as exc:
             self._register_failure(context, str(exc))

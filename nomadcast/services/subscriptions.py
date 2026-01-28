@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from nomadcast.services.episode_waiter import EpisodeWaiter
-from nomadcastd.config import NomadCastConfig, add_subscription_uri, load_config
+from nomadcastd.config import NomadCastConfig, add_no_mirror_uri, add_subscription_uri, load_config
 from nomadcastd.parsing import (
     Subscription,
     encode_show_path,
@@ -96,7 +96,7 @@ class SubscriptionService:
         waiter.start()
         return waiter
 
-    def add_subscription(self, locator: str) -> SubscriptionResult:
+    def add_subscription(self, locator: str, *, mirror_enabled: bool = True) -> SubscriptionResult:
         """Add a subscription and start a cancellable background poller.
 
         Subscription processing is synchronous, but episode polling happens in a
@@ -107,6 +107,8 @@ class SubscriptionService:
         subscription = parse_subscription_uri(uri)
         config = self._config_loader()
         added = add_subscription_uri(config.config_path, uri)
+        if not mirror_enabled:
+            add_no_mirror_uri(config.config_path, uri)
         feed_url = subscription_feed_url(subscription, config)
         waiter = self._start_waiter(subscription, config)
 
