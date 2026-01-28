@@ -38,8 +38,33 @@ def _strip_nomadcast_prefix(value: str) -> str:
     raise ValueError("NomadCast URL must start with nomadcast:")
 
 
+def _validate_destination_show(destination_hash: str, show_name: str) -> None:
+    """Validate destination hash + show name pairs.
+
+    Validation rules:
+    - Destination hash must be hexadecimal and at least 32 characters.
+    - Show name must be non-empty.
+
+    Raises:
+        ValueError: If any validation rule fails.
+    """
+    if len(destination_hash) < MIN_DEST_HASH_LEN or not DEST_HASH_RE.match(destination_hash):
+        raise ValueError("Destination hash must be hex and at least 32 characters")
+    if not show_name:
+        raise ValueError("Show name is required")
+
+
 def parse_subscription_uri(uri: str) -> Subscription:
-    """Parse the README-defined subscription URI format."""
+    """Parse the README-defined subscription URI format.
+
+    Validation rules:
+    - URL must include destination hash and show name (separated by a colon).
+    - Media URLs are rejected.
+    - Destination hash and show name are validated by `_validate_destination_show`.
+
+    Raises:
+        ValueError: If the subscription URI is invalid.
+    """
     body = _strip_nomadcast_prefix(uri)
     if body.endswith("/rss"):
         body = body[: -len("/rss")]
@@ -48,10 +73,7 @@ def parse_subscription_uri(uri: str) -> Subscription:
     if MEDIA_PREFIX in body:
         raise ValueError("Media URLs are not valid subscription locators")
     destination_hash, show_name = body.split(":", 1)
-    if len(destination_hash) < MIN_DEST_HASH_LEN or not DEST_HASH_RE.match(destination_hash):
-        raise ValueError("Destination hash must be hex and at least 32 characters")
-    if not show_name:
-        raise ValueError("Show name is required")
+    _validate_destination_show(destination_hash, show_name)
     return Subscription(uri=uri, destination_hash=destination_hash, show_name=show_name)
 
 
@@ -89,20 +111,34 @@ def encode_show_path(destination_hash: str, show_name: str) -> str:
 
 
 def decode_show_path(show_path: str) -> tuple[str, str]:
-    """Decode a show_path back into destination hash and show name."""
+    """Decode a show_path back into destination hash and show name.
+
+    Validation rules:
+    - show_path must include destination hash and show name (separated by a colon).
+    - Destination hash and show name are validated by `_validate_destination_show`.
+
+    Raises:
+        ValueError: If the show path is invalid.
+    """
     decoded = unquote(show_path)
     if ":" not in decoded:
         raise ValueError("Show path must include destination hash and show name")
     destination_hash, show_name = decoded.split(":", 1)
-    if len(destination_hash) < MIN_DEST_HASH_LEN or not DEST_HASH_RE.match(destination_hash):
-        raise ValueError("Destination hash must be hex and at least 32 characters")
-    if not show_name:
-        raise ValueError("Show name is required")
+    _validate_destination_show(destination_hash, show_name)
     return destination_hash, show_name
 
 
 def parse_nomadcast_media_url(url: str) -> tuple[str, str, str]:
-    """Parse a nomadcast media URL and validate its filename."""
+    """Parse a nomadcast media URL and validate its filename.
+
+    Validation rules:
+    - URL must include destination hash, show name, and a /media/ filename.
+    - Destination hash and show name are validated by `_validate_destination_show`.
+    - Filename is validated by `sanitize_filename`.
+
+    Raises:
+        ValueError: If the media URL or filename is invalid.
+    """
     if MEDIA_PREFIX not in url:
         raise ValueError("Not a nomadcast media URL")
     prefix, filename = url.split(MEDIA_PREFIX, 1)
@@ -111,10 +147,7 @@ def parse_nomadcast_media_url(url: str) -> tuple[str, str, str]:
     if ":" not in body:
         raise ValueError("Media URL must include destination hash and show name")
     destination_hash, show_name = body.split(":", 1)
-    if len(destination_hash) < MIN_DEST_HASH_LEN or not DEST_HASH_RE.match(destination_hash):
-        raise ValueError("Destination hash must be hex and at least 32 characters")
-    if not show_name:
-        raise ValueError("Show name is required")
+    _validate_destination_show(destination_hash, show_name)
     if not sanitize_filename(filename):
         raise ValueError("Invalid filename")
     return destination_hash, show_name, filename
