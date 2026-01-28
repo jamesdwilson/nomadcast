@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 from nomadcast.app_install import maybe_prompt_install_app
 from nomadcast.controllers.main_controller import MainController
-from nomadcast.ui import SubscriptionService, UiStatus
+from nomadcast.services.subscriptions import SubscriptionService
+from nomadcast.ui import UiStatus
 from nomadcast.ui.main_view import MainView
 from nomadcast.ui.style import init_style
 from nomadcast.ui.tray import TkTrayController

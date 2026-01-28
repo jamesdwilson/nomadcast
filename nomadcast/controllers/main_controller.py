@@ -6,7 +6,8 @@ import logging
 from typing import Callable
 
 from nomadcast.domain.types import LocatorInput, validate_locator
-from nomadcast.ui import SubscriptionService, UiStatus
+from nomadcast.services.subscriptions import SubscriptionResult, SubscriptionService
+from nomadcast.ui import UiStatus
 from nomadcast.ui.main_view import MainView
 
 
@@ -35,13 +36,15 @@ class MainController:
 
         self._view.set_busy(True)
         try:
-            status = self._service.add_subscription(locator_input.locator)
+            result = self._service.add_subscription(locator_input.locator)
         except ValueError as exc:
             self._logger.warning("Invalid locator entered: %s", exc)
             status = UiStatus(message=f"Invalid locator: {exc}", is_error=True)
         except OSError as exc:
             self._logger.exception("Failed to update config: %s", exc)
             status = UiStatus(message=f"Failed to update config: {exc}", is_error=True)
+        else:
+            status = UiStatus(message=result.message, is_error=result.is_error)
         finally:
             self._view.set_busy(False)
 
@@ -63,9 +66,11 @@ class MainController:
         """Handle health endpoint action."""
         self._handle_not_implemented(self._service.health_endpoint)
 
-    def _handle_not_implemented(self, action: Callable[[], UiStatus]) -> None:
+    def _handle_not_implemented(self, action: Callable[[], SubscriptionResult]) -> None:
         try:
-            status = action()
+            result = action()
         except NotImplementedError as exc:
             status = UiStatus(message=str(exc), is_error=True)
+        else:
+            status = UiStatus(message=result.message, is_error=result.is_error)
         self._view.set_status(status)
