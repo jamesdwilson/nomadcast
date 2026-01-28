@@ -45,12 +45,84 @@ class UiStatus:
     is_error: bool = False
 
 
+class EpisodeWaiter:
+    """Poll for cached episodes in a daemon thread with cooperative cancellation.
+
+    A caller can provide a cancellation event and invoke ``stop()`` to signal
+    the background thread to exit early.
+    """
+
+    def __init__(
+        self,
+        episodes_dir: Path,
+        feed_url: str,
+        handler_url: str,
+        has_cached_episode: Callable[[Path], bool],
+        logger: logging.Logger,
+        *,
+        poll_interval: float = 2.0,
+        timeout: float = 300.0,
+        cancel_event: threading.Event | None = None,
+    ) -> None:
+        self._episodes_dir = episodes_dir
+        self._feed_url = feed_url
+        self._handler_url = handler_url
+        self._has_cached_episode = has_cached_episode
+        self._logger = logger
+        self._poll_interval = poll_interval
+        self._timeout = timeout
+        self._cancel_event = cancel_event or threading.Event()
+        self._worker: threading.Thread | None = None
+
+    def start(self) -> None:
+        """Start the daemon thread that polls until an episode is cached."""
+        if self._worker and self._worker.is_alive():
+            return
+        self._worker = threading.Thread(target=self._run, daemon=True)
+        self._worker.start()
+
+    def stop(self) -> None:
+        """Signal the polling thread to stop and wait briefly for shutdown."""
+        self._cancel_event.set()
+        if self._worker and self._worker.is_alive():
+            self._worker.join(timeout=self._poll_interval)
+
+    def _run(self) -> None:
+        start_time = time.monotonic()
+        self._logger.info("Waiting for first episode in %s", self._episodes_dir)
+        while not self._cancel_event.is_set():
+            if self._has_cached_episode(self._episodes_dir):
+                self._logger.info(
+                    "First episode cached; opening podcast handler for %s",
+                    self._feed_url,
+                )
+                webbrowser.open(self._handler_url, new=2)
+                return
+            elapsed = time.monotonic() - start_time
+            if elapsed >= self._timeout:
+                self._logger.warning(
+                    "Timed out waiting for first episode in %s after %.1f seconds",
+                    self._episodes_dir,
+                    elapsed,
+                )
+                return
+            self._cancel_event.wait(self._poll_interval)
+
+
 class SubscriptionService:
     """Service wrapper for subscription writes and podcast handler launches."""
 
-    def __init__(self, config_loader: Callable[[], NomadCastConfig] = load_config) -> None:
+    def __init__(
+        self,
+        config_loader: Callable[[], NomadCastConfig] = load_config,
+        *,
+        poll_interval: float = 2.0,
+        wait_timeout: float = 300.0,
+    ) -> None:
         self._config_loader = config_loader
         self._logger = logging.getLogger(__name__)
+        self._poll_interval = poll_interval
+        self._wait_timeout = wait_timeout
 
     def _episodes_dir(self, subscription: Subscription, config: NomadCastConfig) -> Path:
         show_dir = show_directory(config.storage_path, subscription.destination_hash)
@@ -63,41 +135,39 @@ class SubscriptionService:
             return False
         return any(entry.is_file() for entry in entries)
 
-    def _wait_and_open_player(self, subscription: Subscription, config: NomadCastConfig) -> None:
+    def _start_waiter(self, subscription: Subscription, config: NomadCastConfig) -> EpisodeWaiter:
+        """Create and start an EpisodeWaiter for the subscription.
+
+        The returned waiter can be used to cancel the background thread.
+        """
         feed_url = _subscription_feed_url(subscription, config)
         handler_url = _podcast_handler_url(feed_url)
         episodes_dir = self._episodes_dir(subscription, config)
-        self._logger.info("Waiting for first episode in %s", episodes_dir)
-        while True:
-            if self._has_cached_episode(episodes_dir):
-                self._logger.info("First episode cached; opening podcast handler for %s", feed_url)
-                webbrowser.open(handler_url, new=2)
-                return
-            time.sleep(2)
-
-    def _start_waiter(self, subscription: Subscription, config: NomadCastConfig) -> None:
-        worker = threading.Thread(
-            target=self._wait_and_open_player,
-            args=(subscription, config),
-            daemon=True,
+        waiter = EpisodeWaiter(
+            episodes_dir,
+            feed_url,
+            handler_url,
+            self._has_cached_episode,
+            self._logger,
+            poll_interval=self._poll_interval,
+            timeout=self._wait_timeout,
         )
-        worker.start()
+        waiter.start()
+        return waiter
 
     def add_subscription(self, locator: str) -> UiStatus:
-        """Add a subscription and open the podcast handler URL."""
+        """Add a subscription and start a cancellable background poller.
+
+        Subscription processing is synchronous, but episode polling happens in a
+        daemon thread that can be cancelled via the returned EpisodeWaiter from
+        ``_start_waiter``.
+        """
         uri = normalize_subscription_input(locator)
         subscription = parse_subscription_uri(uri)
         config = self._config_loader()
         added = add_subscription_uri(config.config_path, uri)
         feed_url = _subscription_feed_url(subscription, config)
-
-        episodes_dir = self._episodes_dir(subscription, config)
-        if self._has_cached_episode(episodes_dir):
-            handler_url = _podcast_handler_url(feed_url)
-            self._logger.info("Cached episode found; opening podcast handler for %s", feed_url)
-            webbrowser.open(handler_url, new=2)
-        else:
-            self._start_waiter(subscription, config)
+        self._start_waiter(subscription, config)
 
         if added:
             self._logger.info(
