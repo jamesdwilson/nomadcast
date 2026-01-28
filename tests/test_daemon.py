@@ -38,7 +38,12 @@ class DaemonBehaviorTests(unittest.TestCase):
             retry_backoff_seconds=300,
             max_bytes_per_show=max_bytes_per_show,
             public_host=None,
+            nomadnet_root=self.storage_path / "nomadnet",
+            mirror_enabled=True,
+            no_mirror_uris=set(),
             reticulum_config_dir=None,
+            reticulum_destination_app="nomadnetwork",
+            reticulum_destination_aspects=("node",),
             config_path=self.storage_path / "config",
         )
         return NomadCastDaemon(config=config, fetcher=MockFetcher())

@@ -27,7 +27,12 @@ class RangeTests(unittest.TestCase):
             retry_backoff_seconds=300,
             max_bytes_per_show=0,
             public_host=None,
+            nomadnet_root=storage_path / "nomadnet",
+            mirror_enabled=True,
+            no_mirror_uris=set(),
             reticulum_config_dir=None,
+            reticulum_destination_app="nomadnetwork",
+            reticulum_destination_aspects=("node",),
             config_path=storage_path / "config",
         )
         self.daemon: NomadCastDaemon = NomadCastDaemon(config=self.config, fetcher=MockFetcher())
