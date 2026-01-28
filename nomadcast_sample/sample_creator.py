@@ -79,7 +79,7 @@ class SampleCreatorApp:
             root.iconphoto(True, icon_image)
             # Keep a reference to avoid the Tk image being garbage collected.
             root.icon_image = icon_image
-            banner_logo = icon_image.zoom(3, 3)
+            banner_logo = icon_image.zoom(2, 2)
             root.banner_logo = banner_logo
         else:
             banner_logo = None
