@@ -103,10 +103,6 @@ class TkUiLauncher:
         view = MainView(
             root,
             on_add=lambda: None,
-            on_manage_daemon=lambda: None,
-            on_edit_subscriptions=lambda: None,
-            on_view_cache=lambda: None,
-            on_health_endpoint=lambda: None,
             initial_locator=self._initial_locator,
         )
         view.grid(row=0, column=0, sticky="nsew")
@@ -122,10 +118,6 @@ class TkUiLauncher:
         controller = MainController(view=view, service=service, logger=logger)
         view.set_callbacks(
             on_add=controller.on_add,
-            on_manage_daemon=controller.on_manage_daemon,
-            on_edit_subscriptions=controller.on_edit_subscriptions,
-            on_view_cache=controller.on_view_cache,
-            on_health_endpoint=controller.on_health_endpoint,
         )
         return controller
 
