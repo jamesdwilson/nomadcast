@@ -66,14 +66,11 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
             Returns 404 for invalid or missing show paths.
         """
         # README: return cached RSS (200) or 503 if missing, and enqueue refresh.
-        parts = path.split("/", 2)
-        if len(parts) < 3 or not parts[2]:
-            self.send_error(HTTPStatus.NOT_FOUND, "Missing show path")
+        show_path = self._extract_show_path(path, "Missing show path")
+        if show_path is None:
             return
-        show_path = parts[2]
-        show_id = self.server.daemon.show_id_from_path(show_path)
-        if not show_id:
-            self.send_error(HTTPStatus.NOT_FOUND, "Invalid show path")
+        show_id = self._resolve_show_id(show_path)
+        if show_id is None:
             return
         self.server.daemon.enqueue_refresh(show_id)
         cached = self.server.daemon.get_cached_rss(show_id)
@@ -85,13 +82,7 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
                 show_id,
                 retry_after,
             )
-            self.send_response(HTTPStatus.SERVICE_UNAVAILABLE)
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Retry-After", str(retry_after))
-            self.send_header("Cache-Control", "no-store, max-age=0")
-            self.send_header("Pragma", "no-cache")
-            self.end_headers()
-            self.wfile.write(b"RSS not yet cached. Refresh queued.\n")
+            self._send_feed_cache_miss(retry_after)
             return
         logger.info("RSS cache hit for %s; bytes=%s", show_id, len(cached))
         self.send_response(HTTPStatus.OK)
@@ -111,24 +102,10 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
             404 for cache misses, and 416 for unsatisfiable ranges.
         """
         # README: serve cached media with Range support; queue fetch if missing.
-        parts = path.split("/", 3)
-        if len(parts) < 4:
-            self.send_error(HTTPStatus.NOT_FOUND, "Missing show path or filename")
+        parsed_media = self._parse_media_request(path)
+        if parsed_media is None:
             return
-        show_path, raw_filename = parts[2], parts[3]
-        filename = unquote(raw_filename)
-        if not sanitize_filename(filename):
-            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
-            return
-        try:
-            decode_show_path(show_path)
-        except ValueError:
-            self.send_error(HTTPStatus.NOT_FOUND, "Invalid show path")
-            return
-        show_id = self.server.daemon.show_id_from_path(show_path)
-        if not show_id:
-            self.send_error(HTTPStatus.NOT_FOUND, "Invalid show path")
-            return
+        show_id, filename = parsed_media
         media_path = self.server.daemon.get_media_path(show_id, filename)
         if media_path is None:
             logging.getLogger("nomadcastd.media").info("Cache miss for %s/%s", show_id, filename)
@@ -164,6 +141,61 @@ class NomadCastRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         with open(media_path, "rb") as handle:
             self.wfile.write(handle.read())
+
+    def _extract_show_path(self, path: str, error_message: str) -> str | None:
+        """Return the show path portion of a request path.
+
+        Args:
+            path: Raw URL path from the HTTP request.
+            error_message: Description to return when the path is missing.
+
+        Returns:
+            The decoded show path string, or None if missing.
+        """
+        parts = path.split("/", 2)
+        if len(parts) < 3 or not parts[2]:
+            self.send_error(HTTPStatus.NOT_FOUND, error_message)
+            return None
+        return parts[2]
+
+    def _resolve_show_id(self, show_path: str) -> str | None:
+        """Validate a show path and resolve it to a show identifier."""
+        try:
+            decode_show_path(show_path)
+        except ValueError:
+            self.send_error(HTTPStatus.NOT_FOUND, "Invalid show path")
+            return None
+        show_id = self.server.daemon.show_id_from_path(show_path)
+        if not show_id:
+            self.send_error(HTTPStatus.NOT_FOUND, "Invalid show path")
+            return None
+        return show_id
+
+    def _parse_media_request(self, path: str) -> tuple[str, str] | None:
+        """Parse the media request path into a show identifier and filename."""
+        parts = path.split("/", 3)
+        if len(parts) < 4:
+            self.send_error(HTTPStatus.NOT_FOUND, "Missing show path or filename")
+            return None
+        show_path, raw_filename = parts[2], parts[3]
+        filename = unquote(raw_filename)
+        if not sanitize_filename(filename):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid filename")
+            return
+        show_id = self._resolve_show_id(show_path)
+        if show_id is None:
+            return None
+        return show_id, filename
+
+    def _send_feed_cache_miss(self, retry_after: int) -> None:
+        """Send a 503 response for a feed cache miss."""
+        self.send_response(HTTPStatus.SERVICE_UNAVAILABLE)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Retry-After", str(retry_after))
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.end_headers()
+        self.wfile.write(b"RSS not yet cached. Refresh queued.\n")
 
     def log_message(self, format: str, *args: object) -> None:
         """Route HTTP logs through the nomadcastd.http logger."""
