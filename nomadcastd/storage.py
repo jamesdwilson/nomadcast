@@ -12,7 +12,9 @@ The storage layout is:
 """
 
 import json
+import logging
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable, TypedDict
@@ -163,3 +165,76 @@ def cached_episode_filenames(episodes: Iterable[CachedEpisode]) -> set[str]:
         Filenames are expected to correspond to files under episodes/.
     """
     return {episode.filename for episode in episodes}
+
+
+def resolve_nomadnet_config_dir() -> Path:
+    """Resolve the NomadNet config directory using its precedence order."""
+    candidates = [
+        Path("/etc/nomadnetwork"),
+        Path("~/.config/nomadnetwork").expanduser(),
+        Path("~/.nomadnetwork").expanduser(),
+    ]
+    for candidate in candidates[:-1]:
+        if (candidate / "config").exists():
+            return candidate
+    return candidates[-1]
+
+
+def nomadnet_storage_root(config_dir: Path | None = None) -> Path:
+    """Return the NomadNet storage root."""
+    resolved = config_dir or resolve_nomadnet_config_dir()
+    return resolved / "storage"
+
+
+def _slugify_show_name(show_name: str) -> str:
+    """Create a filesystem-safe slug from a show name."""
+    slug = re.sub(r"[^a-z0-9]+", "-", show_name.lower()).strip("-")
+    return slug or "show"
+
+
+def mirror_show_dir_name(show_name: str, destination_hash: str) -> str:
+    """Build a friendly mirror directory name."""
+    return f"{_slugify_show_name(show_name)}-{destination_hash[:8]}"
+
+
+def _ensure_symlink(link_path: Path, target: Path, logger: logging.Logger) -> None:
+    if link_path.is_symlink():
+        if link_path.resolve() == target.resolve():
+            return
+        link_path.unlink()
+    elif link_path.exists():
+        if link_path.is_dir():
+            try:
+                next(link_path.iterdir())
+            except StopIteration:
+                link_path.rmdir()
+            else:
+                logger.warning("Skipping mirror symlink; %s is a non-empty directory.", link_path)
+                return
+        else:
+            logger.warning("Skipping mirror symlink; %s exists and is not a symlink.", link_path)
+            return
+    link_path.symlink_to(target)
+
+
+def ensure_nomadnet_mirror(
+    *,
+    show_dir: Path,
+    episodes_dir: Path,
+    destination_hash: str,
+    show_name: str,
+    nomadnet_config_dir: Path | None = None,
+) -> Path:
+    """Ensure NomadNet mirror symlinks exist for a show."""
+    logger = logging.getLogger(__name__)
+    storage_root = nomadnet_storage_root(nomadnet_config_dir)
+    files_root = storage_root / "files" / "nomadcast"
+    files_root.mkdir(parents=True, exist_ok=True)
+    mirror_dir = files_root / mirror_show_dir_name(show_name, destination_hash)
+    mirror_dir.mkdir(parents=True, exist_ok=True)
+
+    feed_target = show_dir / "client_rss.xml"
+    media_target = episodes_dir
+    _ensure_symlink(mirror_dir / "feed.rss", feed_target, logger)
+    _ensure_symlink(mirror_dir / "media", media_target, logger)
+    return mirror_dir
