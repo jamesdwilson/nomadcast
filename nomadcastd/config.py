@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,7 +13,9 @@ DEFAULT_CONFIG_PATHS = [
     Path("~/.nomadcast/config").expanduser(),
 ]
 
-DEFAULT_CONFIG = """[nomadcast]
+def _default_config_text(*, mirror_to_nomadnet: bool) -> str:
+    mirror_value = "yes" if mirror_to_nomadnet else "no"
+    return f"""[nomadcast]
 # Default configuration aligned with README "Configuration (must implement)" and
 # "Binding behavior requirement" sections. The daemon must create this file if
 # no config exists (Reticulum-style search order in README).
@@ -25,9 +28,14 @@ rss_poll_seconds = 900
 retry_backoff_seconds = 300
 max_bytes_per_show = 0
 public_host =
+mirror_to_nomadnet = {mirror_value}
 
 [subscriptions]
 uri =
+
+[mirroring]
+# Use "nomirror = <uri>" lines to disable mirroring for specific feeds.
+nomirror =
 
 [reticulum]
 config_dir = ~/.reticulum
@@ -50,13 +58,35 @@ class NomadCastConfig:
     reticulum_config_dir: str | None
     reticulum_destination_app: str
     reticulum_destination_aspects: tuple[str, ...]
+    mirror_to_nomadnet: bool
+    nomirror_uris: frozenset[str]
     config_path: Path
 
 
 def ensure_default_config(config_path: Path) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     if not config_path.exists():
-        config_path.write_text(DEFAULT_CONFIG, encoding="utf-8")
+        mirror_to_nomadnet = _prompt_mirror_default()
+        config_path.write_text(
+            _default_config_text(mirror_to_nomadnet=mirror_to_nomadnet),
+            encoding="utf-8",
+        )
+
+
+def _prompt_mirror_default() -> bool:
+    """Prompt for default mirroring behavior on first run."""
+    if not sys.stdin.isatty():
+        return True
+    prompt = (
+        "Enable NomadNet mirroring for new feeds by default? [Y/n]: "
+    )
+    try:
+        response = input(prompt).strip().lower()
+    except EOFError:
+        return True
+    if response in {"n", "no"}:
+        return False
+    return True
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:
@@ -174,6 +204,26 @@ def _load_subscription_uris(config_path: Path) -> list[str]:
     return uris
 
 
+def _load_nomirror_uris(config_path: Path) -> set[str]:
+    """Read multiple `nomirror = ...` lines from [mirroring]."""
+    uris: set[str] = set()
+    current_section = None
+    for line in config_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("#", ";")):
+            continue
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current_section = stripped[1:-1].strip().lower()
+            continue
+        if current_section == "mirroring" and stripped.lower().startswith("nomirror"):
+            if "=" in stripped:
+                _, value = stripped.split("=", 1)
+                uri = value.strip()
+                if uri:
+                    uris.add(uri)
+    return uris
+
+
 def load_config(config_path: Path | None = None) -> NomadCastConfig:
     """Load the NomadCast config using the README search order."""
     if config_path is None:
@@ -230,6 +280,7 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
     )
     max_bytes_per_show = _get_int_value(section, "max_bytes_per_show", 0, config_path, min_value=0)
     public_host = section.get("public_host", "").strip() or None
+    mirror_to_nomadnet = _parse_bool(section.get("mirror_to_nomadnet", "yes"), True)
 
     reticulum_config_dir = None
     if parser.has_section("reticulum"):
@@ -263,6 +314,8 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
         reticulum_config_dir=reticulum_config_dir,
         reticulum_destination_app=reticulum_destination_app,
         reticulum_destination_aspects=aspects,
+        mirror_to_nomadnet=mirror_to_nomadnet,
+        nomirror_uris=frozenset(_load_nomirror_uris(config_path)),
         config_path=config_path,
     )
 
@@ -311,6 +364,41 @@ def add_subscription_uri(config_path: Path, uri: str) -> bool:
     return True
 
 
+def add_nomirror_uri(config_path: Path, uri: str) -> bool:
+    """Add a nomirror URI entry for mirroring exclusions."""
+    ensure_default_config(config_path)
+    existing = _load_nomirror_uris(config_path)
+    if uri in existing:
+        return False
+
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    section_start: int | None = None
+    section_end: int | None = None
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if section_start is not None and section_end is None:
+                section_end = index
+            section_name = stripped[1:-1].strip().lower()
+            if section_name == "mirroring":
+                section_start = index
+
+    if section_start is None:
+        new_lines = lines + ["", "[mirroring]", f"nomirror = {uri}"]
+    else:
+        if section_end is None:
+            section_end = len(lines)
+        new_lines = (
+            lines[:section_end]
+            + [f"nomirror = {uri}"]
+            + lines[section_end:]
+        )
+
+    config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return True
+
+
 def remove_subscription_uri(config_path: Path, uri: str) -> bool:
     """Remove a subscription URI from the NomadCast config.
 
@@ -330,6 +418,36 @@ def remove_subscription_uri(config_path: Path, uri: str) -> bool:
             continue
 
         if current_section == "subscriptions" and stripped.lower().startswith("uri"):
+            if "=" in stripped:
+                _, value = stripped.split("=", 1)
+                existing_uri = value.strip()
+                if existing_uri == uri:
+                    removed = True
+                    continue
+
+        new_lines.append(line)
+
+    if removed:
+        config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return removed
+
+
+def remove_nomirror_uri(config_path: Path, uri: str) -> bool:
+    """Remove a nomirror URI entry from the mirroring section."""
+    ensure_default_config(config_path)
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    new_lines: list[str] = []
+    current_section: str | None = None
+    removed = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current_section = stripped[1:-1].strip().lower()
+            new_lines.append(line)
+            continue
+
+        if current_section == "mirroring" and stripped.lower().startswith("nomirror"):
             if "=" in stripped:
                 _, value = stripped.split("=", 1)
                 existing_uri = value.strip()

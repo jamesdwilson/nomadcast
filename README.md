@@ -23,7 +23,7 @@ In other words: you subscribe to a normal `localhost` URL, and your podcast app 
 
 One-line context: **Reticulum** is the resilient, off-grid networking layer underneath all of this—learn more at https://reticulum.network/. 
 
-**Default feature (entirely optional):** in the spirit of Reticulum’s decentralized ethos, NomadCast ships with an **on-demand mirroring** script that turns any show into a constellation of sovereign mirrors. It is the bright, cooperative future of local-first media: anyone can pull a copy into their own NomadNet storage, light it up for their community, and keep the signal alive even when the wider network flickers. Run it manually when you want a fresh sync, or wire it into automation — it’s there by default, but only if you choose to use it.
+**Default feature (entirely optional):** NomadCast can **automatically mirror** cached feeds and episodes into your NomadNet storage via symlinks. It keeps a friendly mirror tree under `~/.nomadnetwork/storage/files/nomadcast`, so your local cache becomes a shareable node without extra copying. On first run you’ll get a Y/N prompt (default: yes), and you can opt out per feed with `nomadcastd feeds add --nomirror`.
 
 Thanks to this repo—and that mirroring capability—podcasts can now be **fully decentralized**, with no single point of failure and no gatekeepers between you and the signal.
 
@@ -186,23 +186,17 @@ NomadCast aims to follow Reticulum community norms for discoverability and publi
 </details>
 
 <details>
-<summary><strong>On-demand mirroring script</strong></summary>
+<summary><strong>Automatic NomadNet mirroring</strong></summary>
 
-NomadCast includes a one-shot mirroring script for operators who want explicit, on-demand syncing. You can
-run it by hand or wire it into any scheduler or automation you prefer; it will still respect the
-freshness limiter so it only checks the upstream feed when the mirror is older than N hours.
+NomadCast can symlink cached feeds and episodes into NomadNet’s storage tree for sharing. By default it creates:
 
-1. Copy `examples/mirror_podcast.py` to a location of your choice.
-2. Edit the configuration block at the top (parent identity hash + show name, RSS URL, mirror name, and freshness hours).
-3. Run it whenever you want to refresh your mirror (manually or via automation):
+- `~/.nomadnetwork/storage/files/nomadcast/<show-slug>-<hash>/feed.rss`
+- `~/.nomadnetwork/storage/files/nomadcast/<show-slug>-<hash>/media` (symlinked to the cached episodes)
 
-```bash
-python3 mirror_podcast.py
-```
+You’ll be asked on first run whether to enable mirroring by default (Y/n). You can disable it later by setting:
 
-The script mirrors episodes into `~/.nomadnetwork/storage/files/<MirrorName>/media`, stores a tiny
-`last_sync` timestamp, regenerates `feed.rss` only when changes are detected, and annotates the feed
-so listeners can see it is a mirror with a link back to the parent show.
+- `mirror_to_nomadnet = no` in the `[nomadcast]` config section, or
+- adding feeds with `nomadcastd feeds add --nomirror` to skip mirroring for that subscription.
 </details>
 
 <details>
@@ -426,9 +420,13 @@ rss_poll_seconds = 900
 retry_backoff_seconds = 300
 max_bytes_per_show = 0
 public_host =
+mirror_to_nomadnet = yes
 
 [subscriptions]
 uri =
+
+[mirroring]
+nomirror =
 
 [reticulum]
 config_dir =
@@ -443,6 +441,8 @@ Reticulum/NomadNet considerations:
 - `destination_app`/`destination_aspects` control which Reticulum destination is used for NomadNet resources. MeshChat-style URLs (identity hash + `/file/...`) use `nomadnetwork` + `node`, which is now the default.
 - `rss_poll_seconds` and `retry_backoff_seconds` are the main knobs for latency/refresh behavior; higher values reduce background traffic, lower values refresh faster.
 - `max_bytes_per_show` and `episodes_per_show` help cap cache size if storage or slow links are a concern.
+- `mirror_to_nomadnet` enables symlinked mirrors under `~/.nomadnetwork/storage/files/nomadcast`.
+- Add `nomirror = <uri>` lines under `[mirroring]` to skip mirroring for specific subscriptions.
 </details>
 
 <details>
@@ -497,6 +497,7 @@ Use the `feeds` subcommands to list (`ls`), add (`add`), or remove (`rm`) subscr
 ```bash
 python -m nomadcastd feeds ls
 python -m nomadcastd feeds add "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
+python -m nomadcastd feeds add --nomirror "nomadcast://a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 python -m nomadcastd feeds rm "a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow"
 ```
 

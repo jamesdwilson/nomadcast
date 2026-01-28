@@ -10,7 +10,14 @@ import sys
 from pathlib import Path
 from dataclasses import replace
 
-from nomadcastd.config import load_config, load_subscriptions, add_subscription_uri, remove_subscription_uri
+from nomadcastd.config import (
+    add_nomirror_uri,
+    add_subscription_uri,
+    load_config,
+    load_subscriptions,
+    remove_nomirror_uri,
+    remove_subscription_uri,
+)
 from nomadcastd.parsing import encode_show_path, normalize_subscription_input, parse_subscription_uri
 from nomadcastd.daemon import NomadCastDaemon
 from nomadcastd.server import NomadCastHTTPServer, NomadCastRequestHandler
@@ -37,7 +44,8 @@ def _list_feeds(config_path: Path | None) -> int:
             print(uri)
             continue
         show_path = encode_show_path(subscription.destination_hash, subscription.show_name)
-        print(f"{uri}\n  local: {base_url}/feeds/{show_path}")
+        mirror_state = "disabled" if uri in config.nomirror_uris else "enabled"
+        print(f"{uri}\n  local: {base_url}/feeds/{show_path}\n  mirror: {mirror_state}")
     return 0
 
 
@@ -49,6 +57,7 @@ def _remove_feed(locator: str, config_path: Path | None) -> int:
         print(f"Invalid locator: {exc}")
         return 1
     removed = remove_subscription_uri(config.config_path, uri)
+    remove_nomirror_uri(config.config_path, uri)
     if not removed:
         print("Feed not found.")
         return 1
@@ -56,7 +65,7 @@ def _remove_feed(locator: str, config_path: Path | None) -> int:
     return 0
 
 
-def _add_feed(locator: str, config_path: Path | None) -> int:
+def _add_feed(locator: str, config_path: Path | None, *, nomirror: bool) -> int:
     config = load_config(config_path=config_path)
     try:
         uri = normalize_subscription_input(locator)
@@ -64,7 +73,12 @@ def _add_feed(locator: str, config_path: Path | None) -> int:
         print(f"Invalid locator: {exc}")
         return 1
     added = add_subscription_uri(config.config_path, uri)
+    if nomirror:
+        add_nomirror_uri(config.config_path, uri)
     if not added:
+        if nomirror:
+            print("Feed already exists; updated mirroring preference.")
+            return 0
         print("Feed already exists.")
         return 1
     print(f"Added {uri}.")
@@ -171,6 +185,11 @@ def main(argv: list[str] | None = None) -> int:
     feeds_sub.add_parser("ls", help="List configured feeds")
     add_parser = feeds_sub.add_parser("add", help="Add a feed subscription")
     add_parser.add_argument("locator", help="NomadCast locator or destination_hash:ShowName")
+    add_parser.add_argument(
+        "--nomirror",
+        action="store_true",
+        help="Skip NomadNet mirroring for this feed.",
+    )
     rm_parser = feeds_sub.add_parser("rm", help="Remove a feed subscription")
     rm_parser.add_argument("locator", help="NomadCast locator or destination_hash:ShowName")
 
@@ -185,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.feeds_command == "ls":
             return _list_feeds(config_path)
         if args.feeds_command == "add":
-            return _add_feed(args.locator, config_path)
+            return _add_feed(args.locator, config_path, nomirror=args.nomirror)
         if args.feeds_command == "rm":
             return _remove_feed(args.locator, config_path)
         feeds_parser.print_help()

@@ -29,6 +29,7 @@ from nomadcastd.storage import (
     CachedEpisode,
     cached_episode_filenames,
     ensure_show_dirs,
+    ensure_nomadnet_mirror,
     load_show_state,
     save_show_state,
     ShowDirs,
@@ -486,15 +487,17 @@ class NomadCastDaemon:
                 context.state.failure_count = 0
                 context.state.cached_episodes = self._load_cached_episodes(context, order_map)
                 save_show_state(context.state_path, context.state)
-            self.logger.info(
-                "Refresh updated state for %s: cached=%d order_map=%d",
-                show_id,
-                len(context.state.cached_episodes),
-                len(order_map),
-            )
-            # Rebuild client RSS after refresh per README rewrite rules.
-            self._rebuild_client_rss(context)
-            self.logger.info("Refreshed RSS for %s", show_id)
+        self.logger.info(
+            "Refresh updated state for %s: cached=%d order_map=%d",
+            show_id,
+            len(context.state.cached_episodes),
+            len(order_map),
+        )
+        # Rebuild client RSS after refresh per README rewrite rules.
+        self._rebuild_client_rss(context)
+        if self._should_mirror(context):
+            self._ensure_mirror(context)
+        self.logger.info("Refreshed RSS for %s", show_id)
         except Exception as exc:
             self._register_failure(context, str(exc))
             self.logger.error("Failed to refresh %s: %s", show_id, exc)
@@ -598,6 +601,8 @@ class NomadCastDaemon:
                 save_show_state(context.state_path, context.state)
             self.logger.info("Updated cached episodes for %s/%s", show_id, filename)
             self._rebuild_client_rss(context)
+            if self._should_mirror(context):
+                self._ensure_mirror(context)
             self.logger.info("Cached media %s for %s", filename, show_id)
         except Exception as exc:
             self._register_failure(context, str(exc))
@@ -700,3 +705,18 @@ class NomadCastDaemon:
             strict_cached=self.config.strict_cached_enclosures,
         )
         write_atomic(context.show_dir / "client_rss.xml", client_bytes)
+
+    def _should_mirror(self, context: ShowContext) -> bool:
+        return self.config.mirror_to_nomadnet and context.subscription.uri not in self.config.nomirror_uris
+
+    def _ensure_mirror(self, context: ShowContext) -> None:
+        try:
+            mirror_dir = ensure_nomadnet_mirror(
+                show_dir=context.show_dir,
+                episodes_dir=context.episodes_dir,
+                destination_hash=context.subscription.destination_hash,
+                show_name=context.subscription.show_name,
+            )
+            self.logger.info("Ensured NomadNet mirror at %s", mirror_dir)
+        except OSError as exc:
+            self.logger.warning("Failed to ensure NomadNet mirror for %s: %s", context.subscription.show_id, exc)
