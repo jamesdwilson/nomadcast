@@ -79,10 +79,18 @@ class SampleCreatorApp:
             root.iconphoto(True, icon_image)
             # Keep a reference to avoid the Tk image being garbage collected.
             root.icon_image = icon_image
-            banner_logo = icon_image.zoom(2, 2)
+            banner_logo = icon_image.zoom(3, 3)
             root.banner_logo = banner_logo
         else:
             banner_logo = None
+
+        def resize_window_to_content() -> None:
+            """Resize the window to match the current content size."""
+            root.update_idletasks()
+            width = root.winfo_reqwidth()
+            height = root.winfo_reqheight()
+            root.geometry(f"{width}x{height}")
+            self._center_window(root)
 
         root.update_idletasks()
         root.deiconify()
@@ -106,7 +114,13 @@ class SampleCreatorApp:
         header_frame.columnconfigure(0, weight=1)
 
         if banner_logo is not None:
-            logo_label = ttk.Label(header_frame, image=banner_logo)
+            logo_label = tk.Label(
+                header_frame,
+                image=banner_logo,
+                background="#11161e",
+                padx=8,
+                pady=8,
+            )
             logo_label.grid(row=0, column=0, sticky="n", pady=(0, 8))
 
         banner_label = tk.Label(
@@ -264,10 +278,12 @@ class SampleCreatorApp:
             for action in pending_actions:
                 pending_list.insert(tk.END, f"• {action}")
             pending_frame.grid()
+            resize_window_to_content()
 
         def clear_pending_actions() -> None:
             pending_list.delete(0, tk.END)
             pending_frame.grid_remove()
+            resize_window_to_content()
 
         def ensure_identity() -> str | None:
             """Validate the identity input and return the trimmed value."""
@@ -408,7 +424,7 @@ class SampleCreatorApp:
         open_media_button = ttk.Button(links_row, text="📁 Open Media root", command=handle_open_media)
         open_media_button.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
-        self._center_window(root)
+        resize_window_to_content()
         identity_input.focus()
         root.bind("<Return>", lambda event: install_button.invoke())
         root.mainloop()
