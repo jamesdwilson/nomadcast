@@ -8,6 +8,7 @@ separate from the main UI so that creator tooling can evolve independently.
 """
 
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import NoReturn
 
@@ -64,7 +65,10 @@ class SampleCreatorApp:
             icon_image = tk.PhotoImage(file=str(icon_path))
             root.iconphoto(True, icon_image)
             root.icon_image = icon_image
-            banner_logo = icon_image.zoom(2, 2)
+            max_logo_dimension = 96
+            max_dimension = max(icon_image.width(), icon_image.height())
+            scale = max(1, math.ceil(max_dimension / max_logo_dimension))
+            banner_logo = icon_image.subsample(scale, scale)
             root.banner_logo = banner_logo
         else:
             banner_logo = None
