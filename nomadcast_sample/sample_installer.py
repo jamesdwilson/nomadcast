@@ -142,6 +142,11 @@ def install_sample(
     replace_existing: bool,
 ) -> SampleInstallResult:
     """Install the bundled Relay Room content into NomadNet storage."""
+    resolved_show_slug = (
+        sanitize_show_name_for_path(show_name)
+        if show_name_slug == PLACEHOLDER_SHOW_SLUG
+        else sanitize_show_name_for_path(show_name_slug)
+    )
     # Ensure the storage root exists before we attempt any copy operations.
     storage_root.mkdir(parents=True, exist_ok=True)
     files_root = storage_root / "files"
@@ -152,7 +157,7 @@ def install_sample(
     source_files = source_root / "files"
     if replace_existing:
         # Clearing the destination makes the sample feel like a fresh install.
-        _clear_existing_storage(pages_path, files_root, show_name_slug)
+        _clear_existing_storage(pages_path, files_root, resolved_show_slug)
     pages_path.mkdir(parents=True, exist_ok=True)
     files_root.mkdir(parents=True, exist_ok=True)
     # Copy the bundled page and file trees into the user's storage.
@@ -161,10 +166,10 @@ def install_sample(
     # Replace the placeholder identity with the user's real node hash.
     _replace_identity_in_tree(pages_path, identity)
     _replace_identity_in_tree(files_root, identity)
-    _replace_show_name_in_tree(pages_path, show_name, show_name_slug)
-    _replace_show_name_in_tree(files_root, show_name, show_name_slug)
+    _replace_show_name_in_tree(pages_path, show_name, resolved_show_slug)
+    _replace_show_name_in_tree(files_root, show_name, resolved_show_slug)
     sample_folder = files_root / PLACEHOLDER_SHOW_SLUG
-    target_folder = files_root / show_name_slug
+    target_folder = files_root / resolved_show_slug
     if sample_folder.exists() and sample_folder != target_folder:
         if target_folder.exists():
             if replace_existing:
