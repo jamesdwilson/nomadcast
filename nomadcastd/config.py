@@ -25,6 +25,9 @@ rss_poll_seconds = 900
 retry_backoff_seconds = 300
 max_bytes_per_show = 0
 public_host =
+starter_pack_installed = no
+starter_pack_prompted = no
+starter_pack_pages_path =
 
 [subscriptions]
 uri =
@@ -50,6 +53,9 @@ class NomadCastConfig:
     retry_backoff_seconds: int
     max_bytes_per_show: int
     public_host: str | None
+    starter_pack_installed: bool
+    starter_pack_prompted: bool
+    starter_pack_pages_path: Path | None
     nomadnet_root: Path
     mirror_enabled: bool | None
     no_mirror_uris: set[str]
@@ -265,6 +271,17 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
     )
     max_bytes_per_show = _get_int_value(section, "max_bytes_per_show", 0, config_path, min_value=0)
     public_host = section.get("public_host", "").strip() or None
+    starter_pack_installed = _parse_bool(section.get("starter_pack_installed"), False)
+    starter_pack_prompted = _parse_bool(section.get("starter_pack_prompted"), False)
+    starter_pack_pages_value = _get_string_value(
+        section,
+        "starter_pack_pages_path",
+        "",
+        config_path,
+    )
+    starter_pack_pages_path = (
+        Path(starter_pack_pages_value).expanduser() if starter_pack_pages_value else None
+    )
 
     mirror_section = parser["mirroring"] if parser.has_section("mirroring") else {}
     nomadnet_root = Path(
@@ -310,6 +327,9 @@ def load_config(config_path: Path | None = None) -> NomadCastConfig:
         retry_backoff_seconds=retry_backoff_seconds,
         max_bytes_per_show=max_bytes_per_show,
         public_host=public_host,
+        starter_pack_installed=starter_pack_installed,
+        starter_pack_prompted=starter_pack_prompted,
+        starter_pack_pages_path=starter_pack_pages_path,
         nomadnet_root=nomadnet_root.expanduser(),
         mirror_enabled=mirror_enabled,
         no_mirror_uris=no_mirror_uris,
@@ -549,3 +569,63 @@ def set_reticulum_config_dir(config_path: Path, config_dir: Path) -> None:
             )
 
     config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+
+def _set_nomadcast_value(config_path: Path, key: str, value: str) -> None:
+    """Set a [nomadcast] key in the config file."""
+    ensure_default_config(config_path)
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    nomadcast_section_start: int | None = None
+    nomadcast_section_end: int | None = None
+    key_index: int | None = None
+    in_nomadcast = False
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_nomadcast and nomadcast_section_end is None:
+                nomadcast_section_end = index
+            section_name = stripped[1:-1].strip().lower()
+            in_nomadcast = section_name == "nomadcast"
+            if in_nomadcast:
+                nomadcast_section_start = index
+            continue
+
+        if in_nomadcast and "=" in stripped:
+            key_name, _ = stripped.split("=", 1)
+            if key_name.strip().lower() == key.lower():
+                key_index = index
+
+    rendered_value = value
+    if nomadcast_section_start is None:
+        new_lines = lines + ["", "[nomadcast]", f"{key} = {rendered_value}"]
+    else:
+        if nomadcast_section_end is None:
+            nomadcast_section_end = len(lines)
+        if key_index is not None:
+            lines[key_index] = f"{key} = {rendered_value}"
+            new_lines = lines
+        else:
+            new_lines = (
+                lines[:nomadcast_section_end]
+                + [f"{key} = {rendered_value}"]
+                + lines[nomadcast_section_end:]
+            )
+
+    config_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+
+def set_starter_pack_state(
+    config_path: Path,
+    *,
+    installed: bool | None = None,
+    prompted: bool | None = None,
+    pages_path: Path | None = None,
+) -> None:
+    """Persist starter pack metadata in the [nomadcast] config section."""
+    if installed is not None:
+        _set_nomadcast_value(config_path, "starter_pack_installed", "yes" if installed else "no")
+    if prompted is not None:
+        _set_nomadcast_value(config_path, "starter_pack_prompted", "yes" if prompted else "no")
+    if pages_path is not None:
+        _set_nomadcast_value(config_path, "starter_pack_pages_path", str(pages_path))

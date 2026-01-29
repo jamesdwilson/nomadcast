@@ -30,6 +30,7 @@ from nomadcastd.mirroring import (
     sync_nomadnet_mirror,
     write_nomadnet_index,
 )
+from nomadcastd.starter_pack import maybe_install_starter_pack
 from nomadcastd.rss import parse_rss_items, rewrite_rss
 from nomadcastd.storage import (
     CachedEpisode,
@@ -97,7 +98,14 @@ class NomadCastDaemon:
     threads; internal locking on ShowContext ensures per-show state remains
     consistent.
     """
-    def __init__(self, config: NomadCastConfig | None = None, fetcher: Fetcher | None = None) -> None:
+    def __init__(
+        self,
+        config: NomadCastConfig | None = None,
+        fetcher: Fetcher | None = None,
+        *,
+        starter_pack_force: bool = False,
+        starter_pack_pages_path: Path | None = None,
+    ) -> None:
         """Initialize the daemon with config and fetcher dependencies.
 
         Args:
@@ -140,6 +148,8 @@ class NomadCastDaemon:
         self.stop_event = threading.Event()
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.default_mirroring_enabled = True
+        self.starter_pack_force = starter_pack_force
+        self.starter_pack_pages_path = starter_pack_pages_path
 
     def start(self) -> None:
         """Start the daemon worker and ensure storage exists.
@@ -159,6 +169,13 @@ class NomadCastDaemon:
             self.config,
             is_interactive=sys.stdin.isatty(),
             logger=self.logger,
+        )
+        maybe_install_starter_pack(
+            self.config,
+            is_interactive=sys.stdin.isatty(),
+            logger=self.logger,
+            force=self.starter_pack_force,
+            pages_path=self.starter_pack_pages_path,
         )
         self.reload_config()
         write_nomadnet_index(
