@@ -99,9 +99,24 @@ class MirroringTests(unittest.TestCase):
             subscription1 = parse_subscription_uri(uri1)
             subscription2 = parse_subscription_uri(uri2)
             show_dir = show_directory(config.storage_path, subscription1.destination_hash)
-            ensure_show_dirs(show_dir)
+            show_dirs = ensure_show_dirs(show_dir)
+            (show_dirs["episodes_dir"] / "episode.mp3").write_bytes(b"test")
             (show_dir / "publisher_rss.xml").write_text(
-                "<rss><channel><title>Best Show</title></channel></rss>",
+                "\n".join(
+                    [
+                        "<rss xmlns:atom=\"http://www.w3.org/2005/Atom\">",
+                        "  <channel>",
+                        "    <title>Best Show</title>",
+                        "    <link>https://example.com</link>",
+                        "    <atom:link rel=\"self\" href=\"https://example.com/feed.rss\" />",
+                        "    <item>",
+                        "      <title>Episode One</title>",
+                        "      <enclosure url=\"nomadcast:a7c3e9b14f2d6a80715c9e3b1a4d8f20:BestShow/media/episode.mp3\" />",
+                        "    </item>",
+                        "  </channel>",
+                        "</rss>",
+                    ]
+                ),
                 encoding="utf-8",
             )
 
@@ -110,15 +125,18 @@ class MirroringTests(unittest.TestCase):
                 [subscription1, subscription2],
                 default_mirroring_enabled=True,
             )
-            lines = [line for line in content.splitlines() if line and not line.startswith("#")]
-            self.assertIn("subscriptions on this node", lines[0])
-            self.assertIn("[GitHub]", content)
-
             show_path = encode_show_path(subscription1.destination_hash, subscription1.show_name)
             expected_mirror = mirror_rss_href(subscription1)
-            self.assertIn(f"Best Show [mirror]({expected_mirror}) [source]({uri1})", content)
-            self.assertIn(f"OtherShow [source]({uri2})", content)
-            self.assertNotIn(f"[mirror]({mirror_rss_href(subscription2)})", content)
+            expected_media = f"/file/nomadcast/{show_path}/media/episode.mp3"
+            self.assertIn("NOMADCAST INDEX", content)
+            self.assertIn("Best Show", content)
+            self.assertIn(f"mirror rss`{expected_mirror}", content)
+            self.assertIn("example.com`https://example.com", content)
+            self.assertIn("origin rss`https://example.com/feed.rss", content)
+            self.assertIn("Episode One", content)
+            self.assertIn(f"play`{expected_media}", content)
+            self.assertIn("OtherShow", content)
+            self.assertIn("mirror rss`#", content)
             self.assertIn(show_path, expected_mirror)
 
 
