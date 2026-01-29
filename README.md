@@ -200,13 +200,13 @@ How it works:
 - RSS and media are **not copied**. NomadCast creates symlinks from your Nomad Network storage tree
   to the existing NomadCast cache.
 - The index page lives at `/nomadcast/index.mu` and lists subscriptions **in config order**.
-- The page format is:
-  - Top header: `NomadCast`
-  - One short line: `subscriptions on this node`
-  - A link to the GitHub repo
-  - Then list entries (config order) rendered as: `Title [mirror] [source]`.
-- `[mirror]` points to the Nomad Network hosted RSS (the symlinked RSS path).
-- `[source]` points to the original subscription locator you saved in config.
+- The page is rendered from `nomadcastd/templates/nomadnet_index.mu`, which is the board-style
+  template used for mirroring. The renderer fills placeholder tokens like
+  `{{PodcastName_1}}`, `{{OriginSiteHref_1}}`, and `{{MirrorRssHref_1}}` for up to 10 entries.
+- For the first three entries, NomadCast also fills up to three episode previews from the cached
+  publisher RSS when the mirrored media files exist locally.
+- `[mirror rss]` points to the Nomad Network hosted RSS (the symlinked RSS path).
+- `[origin rss]` points to the publisher RSS when known (falls back to `/file/<ShowName>/feed.rss`).
 
 First run prompt:
 
