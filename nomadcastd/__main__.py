@@ -79,13 +79,23 @@ def _add_feed(locator: str, config_path: Path | None, *, mirror_enabled: bool) -
     return 0
 
 
-def _run_daemon(config_path: Path | None, reticulum_override: Path | None = None) -> int:
+def _run_daemon(
+    config_path: Path | None,
+    reticulum_override: Path | None = None,
+    *,
+    starter_pack_force: bool = False,
+    starter_pack_pages_path: Path | None = None,
+) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger = logging.getLogger("nomadcastd")
     config = load_config(config_path=config_path)
     if reticulum_override is not None:
         config = replace(config, reticulum_config_dir=str(reticulum_override))
-    daemon = NomadCastDaemon(config=config)
+    daemon = NomadCastDaemon(
+        config=config,
+        starter_pack_force=starter_pack_force,
+        starter_pack_pages_path=starter_pack_pages_path,
+    )
     daemon.start()
 
     logger.info(
@@ -171,6 +181,15 @@ def main(argv: list[str] | None = None) -> int:
     """Run the NomadCast daemon HTTP server."""
     parser = argparse.ArgumentParser(description="NomadCast daemon")
     parser.add_argument("--config", help="Override config path")
+    parser.add_argument(
+        "--starter-pack",
+        action="store_true",
+        help="Install the starter pack pages now (useful for automation).",
+    )
+    parser.add_argument(
+        "--starter-pack-path",
+        help="Override the pages path used for starter pack installation.",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     feeds_parser = subparsers.add_parser("feeds", help="Manage feed subscriptions")
@@ -212,7 +231,13 @@ def main(argv: list[str] | None = None) -> int:
         feeds_parser.print_help()
         return 1
 
-    return _run_daemon(config_path, reticulum_override)
+    starter_pack_pages_path = Path(args.starter_pack_path).expanduser() if args.starter_pack_path else None
+    return _run_daemon(
+        config_path,
+        reticulum_override,
+        starter_pack_force=args.starter_pack,
+        starter_pack_pages_path=starter_pack_pages_path,
+    )
 
 
 if __name__ == "__main__":
